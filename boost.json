@@ -1,0 +1,22 @@
+{
+    "agents": [
+        "cursor",
+        "gemini",
+        "copilot"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch_mcp": false,
+    "sail": false,
+    "skills": [
+        "cashier-stripe-development",
+        "fortify-development",
+        "laravel-best-practices",
+        "passport-development",
+        "socialite-development",
+        "pest-testing",
+        "echo-development",
+        "tailwindcss-development"
+    ]
+}
