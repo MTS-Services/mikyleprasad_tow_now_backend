@@ -35,7 +35,7 @@ class RegisterUserAction
         ])->validate();
 
         $user = User::query()->create([
-            'name' => $validated['name'],
+            'name' => $validated['name'] ?? null,
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'locale' => $validated['locale'] ?? 'en',

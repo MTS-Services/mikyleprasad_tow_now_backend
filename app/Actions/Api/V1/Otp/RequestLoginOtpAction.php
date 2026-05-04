@@ -141,7 +141,7 @@ class RequestLoginOtpAction
         ?string $supplementPhone
     ): User {
         $attributes = [
-            'name' => $name ?? __('api.otp_default_user_name'),
+            'name' => $name ?? null,
             'password' => null,
             'role' => UserRole::USER,
         ];
