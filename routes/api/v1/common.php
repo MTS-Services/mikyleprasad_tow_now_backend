@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ContactVerificationOtpController;
 use App\Http\Controllers\Api\V1\ConversationController;
 use App\Http\Controllers\Api\V1\LoginHistoryController;
 use App\Http\Controllers\Api\V1\MessageController;
@@ -14,6 +15,11 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/logout', 'logout');
 });
 
+Route::controller(ContactVerificationOtpController::class)->prefix('verification/otp')->group(function () {
+    Route::post('/request', 'request')->middleware(['throttle:api-verification-otp-request']);
+    Route::post('/verify', 'verify')->middleware(['throttle:api-verification-otp-verify']);
+});
+
 Route::controller(UserController::class)->group(function () {
     Route::get('/me', 'me');
 });
@@ -21,6 +27,7 @@ Route::controller(UserController::class)->group(function () {
 Route::get('/login-history', [LoginHistoryController::class, 'index']);
 
 Route::controller(TwoFactorApiController::class)->prefix('two-factor')->group(function () {
+    Route::post('/reauthentication/otp', 'sendReauthenticationOtp')->middleware(['throttle:api-sensitive-action-otp-request']);
     Route::post('/enable', 'enable');
     Route::get('/qr-code', 'qrCode');
     Route::post('/confirm', 'confirm');

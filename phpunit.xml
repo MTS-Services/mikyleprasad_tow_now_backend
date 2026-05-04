@@ -37,5 +37,10 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="CURRENCY_FX_SYNC_ENABLED" value="false"/>
+        <env name="LOGIN_TYPE" value="password"/>
+        <env name="LOGIN_IDENTIFIERS" value="email"/>
+        <env name="OTP_DELIVERY" value="email"/>
+        <env name="OTP_RESEND_SECONDS" value="0"/>
+        <env name="OTP_ALLOW_REGISTRATION_ON_LOGIN" value="true"/>
     </php>
 </phpunit>

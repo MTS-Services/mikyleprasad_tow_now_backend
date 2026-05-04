@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Api\V1\Otp\RequestSensitiveActionOtpAction;
+use App\Actions\Api\V1\Otp\VerifySensitiveActionOtpAction;
+use App\Enums\LoginType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\TwoFactor\SendSensitiveActionOtpRequest;
 use App\Http\Requests\Api\V1\TwoFactor\TwoFactorConfirmRequest;
-use App\Http\Requests\Api\V1\TwoFactor\TwoFactorPasswordRequest;
+use App\Http\Requests\Api\V1\TwoFactor\TwoFactorSensitiveActionRequest;
+use App\Models\User;
+use App\Services\Auth\AuthLoginConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +22,20 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class TwoFactorApiController extends Controller
 {
-    public function enable(TwoFactorPasswordRequest $request, EnableTwoFactorAuthentication $enableTwoFactorAuthentication): JsonResponse
+    public function __construct(
+        protected AuthLoginConfiguration $authLogin,
+        protected VerifySensitiveActionOtpAction $verifySensitiveActionOtpAction,
+    ) {}
+
+    public function sendReauthenticationOtp(SendSensitiveActionOtpRequest $request, RequestSensitiveActionOtpAction $action): JsonResponse
+    {
+        $user = $request->user();
+        assert($user instanceof User);
+
+        return $action->handle($request, $user);
+    }
+
+    public function enable(TwoFactorSensitiveActionRequest $request, EnableTwoFactorAuthentication $enableTwoFactorAuthentication): JsonResponse
     {
         $user = $request->user();
 
@@ -27,6 +46,10 @@ class TwoFactorApiController extends Controller
                 data: null,
                 statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY
             );
+        }
+
+        if ($response = $this->verifySensitiveStepUpIfNeeded($request)) {
+            return $response;
         }
 
         $enableTwoFactorAuthentication($user);
@@ -110,7 +133,7 @@ class TwoFactorApiController extends Controller
         );
     }
 
-    public function regenerateRecoveryCodes(TwoFactorPasswordRequest $request, GenerateNewRecoveryCodes $generateNewRecoveryCodes): JsonResponse
+    public function regenerateRecoveryCodes(TwoFactorSensitiveActionRequest $request, GenerateNewRecoveryCodes $generateNewRecoveryCodes): JsonResponse
     {
         $user = $request->user();
 
@@ -123,6 +146,10 @@ class TwoFactorApiController extends Controller
             );
         }
 
+        if ($response = $this->verifySensitiveStepUpIfNeeded($request)) {
+            return $response;
+        }
+
         $generateNewRecoveryCodes($user);
 
         return sendResponse(
@@ -133,9 +160,14 @@ class TwoFactorApiController extends Controller
         );
     }
 
-    public function disable(TwoFactorPasswordRequest $request, DisableTwoFactorAuthentication $disableTwoFactorAuthentication): JsonResponse
+    public function disable(TwoFactorSensitiveActionRequest $request, DisableTwoFactorAuthentication $disableTwoFactorAuthentication): JsonResponse
     {
         $user = $request->user();
+
+        if ($response = $this->verifySensitiveStepUpIfNeeded($request)) {
+            return $response;
+        }
+
         $disableTwoFactorAuthentication($user);
 
         return sendResponse(
@@ -144,5 +176,34 @@ class TwoFactorApiController extends Controller
             data: null,
             statusCode: HttpStatus::HTTP_OK
         );
+    }
+
+    /**
+     * When using OTP login, consume a step-up OTP issued via `POST .../two-factor/reauthentication/otp`.
+     *
+     * @return JsonResponse|null Non-null when verification failed and the response should be returned immediately.
+     */
+    protected function verifySensitiveStepUpIfNeeded(Request $request): ?JsonResponse
+    {
+        if ($this->authLogin->loginType() !== LoginType::Otp) {
+            return null;
+        }
+
+        $user = $request->user();
+
+        try {
+            $this->verifySensitiveActionOtpAction->handle($request, $user);
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?? __('api.validation_error');
+
+            return sendResponse(
+                status: false,
+                message: $message,
+                data: ['errors' => $e->errors()],
+                statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
+        return null;
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Passport\Passport;
@@ -13,6 +14,11 @@ use Laravel\Passport\Passport;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    Config::set('auth_login.login_type', 'password');
+    Config::set('auth_login.login_identifiers', ['email']);
+    Config::set('auth_login.otp_delivery', 'email');
+    Config::set('auth_login.otp_resend_seconds', 0);
+    Config::set('auth_login.otp_allow_registration_on_login', true);
     $this->seed(DatabaseSeeder::class);
 });
 
@@ -66,51 +72,51 @@ test('registration accepts explicit user role', function (): void {
 
 test('login returns token for seeded user', function (): void {
     $response = $this->postJson('/api/v1/login', [
-        'email' => 'user@example.com',
+        'email' => 'user@dev.com',
         'password' => 'password',
     ]);
 
     $response->assertOk()->assertJsonPath('success', true);
     expect($response->json('data.access_token'))->toBeString()->not->toBeEmpty();
 
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     $this->assertDatabaseHas('user_login_histories', [
         'user_id' => $user->id,
     ]);
 });
 
 test('me returns profile for authenticated user', function (): void {
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     Passport::actingAs($user);
 
     $this->getJson('/api/v1/me')
         ->assertOk()
-        ->assertJsonPath('data.email', 'user@example.com');
+        ->assertJsonPath('data.email', 'user@dev.com');
 });
 
 test('user role can access user ping', function (): void {
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     Passport::actingAs($user);
 
     $this->getJson('/api/v1/user/ping')->assertOk();
 });
 
 test('user role cannot access admin routes', function (): void {
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     Passport::actingAs($user);
 
     $this->getJson('/api/v1/admin/ping')->assertForbidden();
 });
 
 test('admin role can access admin ping', function (): void {
-    $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+    $admin = User::query()->where('email', 'admin@dev.com')->firstOrFail();
     Passport::actingAs($admin);
 
     $this->getJson('/api/v1/admin/ping')->assertOk();
 });
 
 test('admin role cannot access user-only routes', function (): void {
-    $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+    $admin = User::query()->where('email', 'admin@dev.com')->firstOrFail();
     Passport::actingAs($admin);
 
     $this->getJson('/api/v1/user/ping')->assertForbidden();
@@ -123,7 +129,7 @@ test('currencies index is public', function (): void {
 });
 
 test('authenticated user can patch preferences', function (): void {
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     Passport::actingAs($user);
 
     $this->patchJson('/api/v1/preferences', [
@@ -140,7 +146,7 @@ test('authenticated user can patch preferences', function (): void {
 test('creating a product dispatches translation job', function (): void {
     Queue::fake();
 
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
     Passport::actingAs($user);
 
     $usdId = Currency::query()->where('code', 'USD')->value('id');
@@ -158,10 +164,10 @@ test('creating a product dispatches translation job', function (): void {
 });
 
 test('authenticated user can list login history', function (): void {
-    $user = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
 
     $this->postJson('/api/v1/login', [
-        'email' => 'user@example.com',
+        'email' => 'user@dev.com',
         'password' => 'password',
     ])->assertOk();
 
@@ -199,7 +205,7 @@ test('currency sync command appends api rates from frankfurter', function (): vo
 });
 
 test('user cannot view another users product', function (): void {
-    $owner = User::query()->where('email', 'user@example.com')->firstOrFail();
+    $owner = User::query()->where('email', 'user@dev.com')->firstOrFail();
     $usdId = Currency::query()->where('code', 'USD')->value('id');
 
     $product = Product::query()->create([

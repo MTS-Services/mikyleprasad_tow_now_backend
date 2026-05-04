@@ -19,6 +19,7 @@ use Laravel\Passport\HasApiTokens;
 
 #[Fillable([
     'name',
+    'username',
     'email',
     'phone',
     'locale',
@@ -27,6 +28,7 @@ use Laravel\Passport\HasApiTokens;
     'password',
     'role',
     'email_verified_at',
+    'phone_verified_at',
 ])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements CanResetPasswordContract, OAuthenticatable
@@ -62,6 +64,7 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
             'two_factor_confirmed_at' => 'datetime',

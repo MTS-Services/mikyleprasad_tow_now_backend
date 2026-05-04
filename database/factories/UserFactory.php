@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Fortify;
 
 /**
  * @extends Factory<User>
@@ -43,6 +44,20 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::ADMIN,
+        ]);
+    }
+
+    /**
+     * Known Base32 secret for PragmaRX Google2FA (tests only).
+     */
+    public function withConfirmedTwoFactor(?string $plainSecret = null): static
+    {
+        $secret = $plainSecret ?? 'JBSWY3DPEHPK3PXP';
+
+        return $this->state(fn (array $attributes) => [
+            'two_factor_secret' => Fortify::currentEncrypter()->encrypt($secret),
+            'two_factor_confirmed_at' => now(),
+            'two_factor_recovery_codes' => null,
         ]);
     }
 }

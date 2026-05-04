@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Passport\ClientRepository;
 
 class UserSeeder extends Seeder
@@ -23,24 +24,24 @@ class UserSeeder extends Seeder
         }
 
         User::query()->firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => 'admin@dev.com'],
             [
                 'name' => 'Admin',
                 'phone' => null,
                 'locale' => 'en',
-                'password' => 'password',
+                'password' => Hash::make('admin@dev.com'),
                 'role' => UserRole::ADMIN,
                 'email_verified_at' => now(),
             ]
         );
 
         User::query()->firstOrCreate(
-            ['email' => 'user@example.com'],
+            ['email' => 'user@dev.com'],
             [
                 'name' => 'Demo User',
                 'phone' => null,
                 'locale' => 'en',
-                'password' => 'password',
+                'password' => Hash::make('user@dev.com'),
                 'role' => UserRole::USER,
                 'email_verified_at' => now(),
             ]

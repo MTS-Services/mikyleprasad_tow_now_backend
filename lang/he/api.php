@@ -40,4 +40,8 @@ return [
 
     'two_factor_disabled' => 'Two-factor authentication has been disabled.',
 
+    'sensitive_action_otp_disabled' => 'Step-up verification codes are only used when the application is configured for OTP login.',
+
+    'sensitive_action_otp_sent' => 'If eligible, a verification code has been sent for this security action.',
+
 ];
