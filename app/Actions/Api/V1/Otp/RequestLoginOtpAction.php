@@ -54,6 +54,15 @@ class RequestLoginOtpAction
 
         $user = $this->findUser($type, $normalized);
 
+        if ($user === null) {
+            return sendResponse(
+                status: false,
+                message: __('api.no_account_exists_for_this_sign_in'),
+                data: null,
+                statusCode: HttpStatus::HTTP_UNAUTHORIZED
+            );
+        }
+
         $outbound = $this->resolveOutboundChannel($request, $user, $type, $normalized, $supplementEmail, $supplementPhone);
 
         if ($outbound === 'phone') {
@@ -112,7 +121,7 @@ class RequestLoginOtpAction
 
         return sendResponse(
             status: true,
-            message: __('api.otp_sent_to_email'),
+            message: __('api.otp_resent_to_email'),
             data: [
                 'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
             ],

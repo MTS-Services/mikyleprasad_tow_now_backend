@@ -2,46 +2,52 @@
 
 return [
 
-    'registration_successful' => 'Registration successful',
+    'registration_successful' => 'Registro exitoso',
 
-    'login_successful' => 'Login successful',
+    'login_successful' => 'Inicio de sesión exitoso',
 
-    'unauthenticated' => 'Unauthenticated.',
+    'unauthenticated' => 'No autenticado.',
 
-    'logout_successful' => 'Logout successful',
+    'logout_successful' => 'Cierre de sesión exitoso',
 
-    'validation_error' => 'Validation error.',
+    'validation_error' => 'Error de validación.',
 
-    'qr_code' => 'QR code.',
+    'qr_code' => 'Código QR.',
 
-    'recovery_codes' => 'Recovery codes.',
+    'recovery_codes' => 'Códigos de recuperación.',
 
-    'user_details' => 'User details',
+    'user_details' => 'Detalles del usuario',
 
-    'languages_fetched_successfully' => 'Languages fetched successfully.',
+    'languages_fetched_successfully' => 'Idiomas obtenidos exitosamente.',
 
-    'two_factor_required' => 'Two-factor authentication is required.',
+    'two_factor_required' => 'La autenticación de dos factores es requerida.',
 
-    'two_factor_invalid' => 'This two-factor login session is invalid or has expired.',
+    'two_factor_invalid' => 'Esta sesión de inicio de sesión de dos factores es inválida o ha expirado.',
 
-    'two_factor_invalid_code' => 'The provided two-factor code is invalid.',
+    'two_factor_invalid_code' => 'El código de autenticación de dos factores proporcionado es inválido.',
 
-    'two_factor_already_enabled' => 'Two-factor authentication is already enabled.',
+        'two_factor_already_enabled' => 'La autenticación de dos factores ya está habilitada.',
 
-    'two_factor_enabled' => 'Two-factor authentication has been enabled.',
+    'two_factor_enabled' => 'La autenticación de dos factores ha sido habilitada.',
 
-    'two_factor_not_started' => 'Two-factor setup has not been started.',
+    'two_factor_not_started' => 'La configuración de la autenticación de dos factores no ha sido iniciada.',
 
-    'two_factor_confirmed' => 'Two-factor authentication has been confirmed.',
+    'two_factor_confirmed' => 'La autenticación de dos factores ha sido confirmada.',
 
-    'two_factor_not_enabled' => 'Two-factor authentication is not enabled.',
+    'two_factor_not_enabled' => 'La autenticación de dos factores no está habilitada.',
 
-    'two_factor_recovery_regenerated' => 'Recovery codes have been regenerated.',
+    'two_factor_recovery_regenerated' => 'Los códigos de recuperación han sido regenerados.',
 
-    'two_factor_disabled' => 'Two-factor authentication has been disabled.',
+    'two_factor_disabled' => 'La autenticación de dos factores ha sido deshabilitada.',
 
-    'sensitive_action_otp_disabled' => 'Step-up verification codes are only used when the application is configured for OTP login.',
+    'sensitive_action_otp_disabled' => 'Los códigos de verificación de paso alto solo se utilizan cuando la aplicación está configurada para el inicio de sesión OTP.',
 
-    'sensitive_action_otp_sent' => 'If eligible, a verification code has been sent for this security action.',
+    'sensitive_action_otp_sent' => 'Si es elegible, se ha enviado un código de verificación para esta acción de seguridad.',
+
+    'invalid_credentials' => 'Credenciales no válidas.',
+
+    'no_account_exists_for_this_sign_in' => 'No existe una cuenta para este inicio de sesión. Por favor, verifica tu correo electrónico o registra una cuenta.',
+
+    'otp_sent_to_email' => 'Se ha enviado un código de verificación a tu correo electrónico. Por favor, verifica tu bandeja de entrada.',
 
 ];

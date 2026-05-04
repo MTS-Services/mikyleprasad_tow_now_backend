@@ -84,7 +84,7 @@ class RequestSensitiveActionOtpAction
 
         return sendResponse(
             status: true,
-            message: __('api.sensitive_action_otp_sent'),
+            message: __('api.otp_resent_to_email'),
             data: [
                 'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
             ],
