@@ -8,6 +8,10 @@ return [
 
     'pending_registration_not_found' => 'No pending registration was found for this identifier. Please register again.',
 
+    'guest_token_required' => 'A guest token is required for this OTP session.',
+
+    'guest_token_invalid' => 'This OTP session is invalid or expired. Please request a new code.',
+
     'login_successful' => 'Login successful',
 
     'unauthenticated' => 'Unauthenticated.',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Notifications\Auth\OtpCodeNotification;
@@ -16,6 +17,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     Config::set('auth_login.login_type', 'password');
     $this->seed(DatabaseSeeder::class);
+    $this->withHeader('X-Guest-Token', 'guest-test-token');
 });
 
 test('user registration requires role and email and generates a visual username', function (): void {
@@ -29,11 +31,15 @@ test('user registration requires role and email and generates a visual username'
         ->assertJsonPath('data.identifier_type', 'email')
         ->assertJsonPath('data.identifier', 'customer@example.com')
         ->assertJsonMissingPath('data.access_token')
-        ->assertJsonPath('data.verification_channel', 'email');
+        ->assertJsonPath('data.verification_channel', 'email')
+        ->assertJsonPath('data.user.email', 'customer@example.com')
+        ->assertJsonPath('data.user.username', fn ($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
 
-    expect(User::query()->where('email', 'customer@example.com')->exists())->toBeFalse();
+    $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
 
-    Notification::assertSentOnDemand(OtpCodeNotification::class);
+    expect($user->email_verified_at)->toBeNull();
+
+    Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
 test('admin cannot register', function (): void {
@@ -88,9 +94,13 @@ test('driver registration creates related profile and stores documents', functio
         ->assertJsonPath('data.identifier_type', 'email')
         ->assertJsonPath('data.identifier', 'driver@example.com');
 
-    expect(User::query()->where('email', 'driver@example.com')->exists())->toBeFalse();
+    $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
+    $profile = $user->driverProfile()->firstOrFail();
 
-    Notification::assertSentOnDemand(OtpCodeNotification::class);
+    Storage::disk('public')->assertExists($profile->truck_image_path);
+    Storage::disk('public')->assertExists($profile->driving_license_image_path);
+    Storage::disk('public')->assertExists($profile->car_legal_documents_path);
+    Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
 test('registration verify creates user and returns access token', function (): void {
@@ -107,12 +117,21 @@ test('registration verify creates user and returns access token', function (): v
         'email' => 'needs-verification@example.com',
         'password' => 'password',
     ])
-        ->assertUnauthorized();
+        ->assertForbidden()
+        ->assertJsonPath('code', 'IDENTIFIER_NOT_VERIFIED');
 
     $code = '123456';
-    cache()->put('registration:otp:'.OtpRepository::fingerprint('email', 'needs-verification@example.com'), [
-        'hash' => OtpRepository::hashCode($code),
-    ], now()->addMinutes(10));
+    $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
+    app(OtpRepository::class)->put(
+        OtpPurpose::VerifyEmail,
+        OtpRepository::fingerprint('email', 'needs-verification@example.com'),
+        [
+            'user_id' => $user->id,
+            'hash' => OtpRepository::hashCode($code),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
+        ],
+        10
+    );
 
     $this->postJson('/api/v1/otp/register/verify', [
         'email' => 'needs-verification@example.com',
@@ -122,8 +141,6 @@ test('registration verify creates user and returns access token', function (): v
         ->assertJsonPath('data.user.email', 'needs-verification@example.com')
         ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
         ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
-
-    $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
 
     expect($user->username)->not->toBeNull();
 });
@@ -142,5 +159,35 @@ test('registration otp can be resent before verification', function (): void {
         ->assertOk()
         ->assertJsonPath('data.verification_channel', 'email');
 
-    Notification::assertSentOnDemand(OtpCodeNotification::class, 2);
+    $user = User::query()->where('email', 'resend@example.com')->firstOrFail();
+    Notification::assertSentToTimes($user, OtpCodeNotification::class, 2);
+});
+
+test('registration otp verify must use the same guest token session', function (): void {
+    Notification::fake();
+
+    $this->postJson('/api/v1/register', [
+        'role' => UserRole::USER->value,
+        'email' => 'guest-bound@example.com',
+    ])->assertCreated();
+
+    $user = User::query()->where('email', 'guest-bound@example.com')->firstOrFail();
+    app(OtpRepository::class)->put(
+        OtpPurpose::VerifyEmail,
+        OtpRepository::fingerprint('email', 'guest-bound@example.com'),
+        [
+            'user_id' => $user->id,
+            'hash' => OtpRepository::hashCode('333333'),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
+        ],
+        10
+    );
+
+    $this->withHeader('X-Guest-Token', 'different-guest-token')
+        ->postJson('/api/v1/otp/register/verify', [
+            'email' => 'guest-bound@example.com',
+            'code' => '333333',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['guest_token']);
 });

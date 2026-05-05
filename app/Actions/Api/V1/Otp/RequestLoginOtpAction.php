@@ -12,6 +12,7 @@ use App\Notifications\Auth\OtpCodeNotification;
 use App\Services\Auth\AuthLoginConfiguration;
 use App\Services\Auth\LoginIdentifierDetector;
 use App\Services\Otp\OtpRepository;
+use App\Support\Auth\GuestToken;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,7 @@ class RequestLoginOtpAction
         ]);
 
         $fingerprint = OtpRepository::fingerprint($type->value, $normalized);
+        $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
 
         $this->ensureResendCooldownAllowsSend($fingerprint);
 
@@ -102,6 +104,7 @@ class RequestLoginOtpAction
             [
                 'user_id' => $user->id,
                 'hash' => OtpRepository::hashCode($plainCode),
+                'guest_token_hash' => $guestTokenHash,
             ],
             $this->authLogin->otpTtlMinutes()
         );

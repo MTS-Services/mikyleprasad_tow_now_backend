@@ -22,6 +22,7 @@ beforeEach(function (): void {
     Config::set('auth_login.otp_resend_seconds', 0);
     Config::set('auth_login.otp_allow_registration_on_login', true);
     $this->seed(DatabaseSeeder::class);
+    $this->withHeader('X-Guest-Token', 'guest-test-token');
 });
 
 test('password mode rejects login otp request with code', function (): void {
@@ -114,7 +115,7 @@ test('otp mode allows registration', function (): void {
         ->assertJsonPath('data.identifier', 'x@example.com')
         ->assertJsonMissingPath('data.access_token');
 
-    expect(User::query()->where('email', 'x@example.com')->exists())->toBeFalse();
+    expect(User::query()->where('email', 'x@example.com')->exists())->toBeTrue();
 });
 
 test('otp mode rejects forgot and reset password with code', function (): void {
@@ -146,6 +147,7 @@ test('otp verify returns token when otp matches cache', function (): void {
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
         ],
         10
     );
@@ -161,7 +163,7 @@ test('otp verify returns token when otp matches cache', function (): void {
         ->assertJsonPath('data.access_token', fn ($v) => is_string($v) && $v !== '');
 });
 
-test('otp verify blocks login for unverified identifier', function (): void {
+test('otp verify marks an unverified identifier before returning token', function (): void {
     Config::set('auth_login.login_type', 'otp');
     Config::set('auth_login.login_identifiers', ['email']);
 
@@ -176,6 +178,7 @@ test('otp verify blocks login for unverified identifier', function (): void {
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
         ],
         10
     );
@@ -184,8 +187,9 @@ test('otp verify blocks login for unverified identifier', function (): void {
         'identifier' => 'unverified-otp@example.com',
         'code' => $code,
     ])
-        ->assertForbidden()
-        ->assertJsonPath('code', 'IDENTIFIER_NOT_VERIFIED');
+        ->assertOk()
+        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 });
 
 test('login otp resend cooldown returns 429 then allows after window', function (): void {
@@ -345,6 +349,7 @@ test('otp verify requires two factor when enabled', function (): void {
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($otp),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
         ],
         10
     );
