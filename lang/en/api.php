@@ -2,9 +2,9 @@
 
 return [
 
-    'registration_successful' => 'Registration successful. Verify your account before logging in.',
+    'registration_successful' => 'Registration successful.',
 
-    'registration_verification_sent' => 'Registration successful. A verification code has been sent to your account identifier.',
+    'registration_verification_sent' => 'A verification code has been sent to your email address. Please verify to register your account.',
 
     'pending_registration_not_found' => 'No pending registration was found for this identifier. Please register again.',
 

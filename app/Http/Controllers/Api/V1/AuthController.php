@@ -45,9 +45,6 @@ class AuthController extends Controller
             status: true,
             message: __('api.registration_verification_sent'),
             data: [
-                'identifier_type' => $result['identifier_type'],
-                'identifier' => $result['identifier'],
-                'verification_channel' => $result['verification_channel'],
                 'expires_in_minutes' => $result['expires_in_minutes'],
             ],
             statusCode: HttpStatus::HTTP_CREATED
@@ -106,7 +103,7 @@ class AuthController extends Controller
     public function twoFactorChallenge(TwoFactorChallengeRequest $request): JsonResponse
     {
         $token = $request->string('two_factor_token')->toString();
-        $cacheKey = 'api_2fa_login:'.$token;
+        $cacheKey = 'api_2fa_login:' . $token;
         $payload = Cache::get($cacheKey);
 
         if (! is_array($payload) || ! isset($payload['user_id'])) {
@@ -136,7 +133,7 @@ class AuthController extends Controller
         if ($request->filled('recovery_code')) {
             $recovery = $request->string('recovery_code')->toString();
             $codes = $user->recoveryCodes();
-            $match = collect($codes)->first(fn (string $c): bool => hash_equals($c, $recovery));
+            $match = collect($codes)->first(fn(string $c): bool => hash_equals($c, $recovery));
 
             if ($match === null) {
                 return sendResponse(
