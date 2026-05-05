@@ -46,10 +46,10 @@ class AuthController extends Controller
             status: true,
             message: __('api.registration_verification_sent'),
             data: [
-                'user' => new UserResource($result['user']),
-                'identifier_type' => $result['identifier_type'],
-                'identifier' => $result['identifier'],
-                'verification_channel' => $result['verification_channel'],
+                // 'user' => new UserResource($result['user']),
+                // 'identifier_type' => $result['identifier_type'],
+                // 'identifier' => $result['identifier'],
+                // 'verification_channel' => $result['verification_channel'],
                 'expires_in_minutes' => $result['expires_in_minutes'],
             ],
             statusCode: HttpStatus::HTTP_CREATED
