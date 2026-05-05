@@ -52,6 +52,8 @@ return [
 
     'sensitive_action_otp_sent' => 'If eligible, a verification code has been sent for this security action.',
 
+    'otp_sent_to_email' => 'A verification code has been sent to your email address. Please check your inbox.',
+
     'notifications_fetched_successfully' => 'Notifications retrieved successfully.',
 
     'notification_not_found' => 'Notification not found.',
@@ -110,7 +112,7 @@ return [
 
     'otp_invalid_or_expired' => 'The code is invalid or has expired.',
 
-    'otp_sent_to_email' => 'If eligible, a verification code has been sent to your email address.',
+    'otp_resent_to_email' => 'A verification code has been resent to your email address.',
 
     'otp_email_required_for_delivery' => 'An email address is required to deliver this code.',
 
@@ -135,5 +137,8 @@ return [
     'otp_resend_too_soon' => 'Please wait before requesting another code.',
 
     'otp_login_registration_disabled' => 'No account exists for this sign-in. Registration through this flow is disabled.',
+    'invalid_credentials' => 'Invalid credentials.',
+
+    'no_account_exists_for_this_sign_in' => 'No account exists for this sign-in. Please check your email or register for an account.',
 
 ];

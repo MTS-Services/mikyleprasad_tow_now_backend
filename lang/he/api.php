@@ -2,46 +2,51 @@
 
 return [
 
-    'registration_successful' => 'Registration successful',
+    'registration_successful' => 'הרשמה בוצעה בהצלחה',
 
-    'login_successful' => 'Login successful',
+    'login_successful' => 'התחברות בוצעה בהצלחה',
 
-    'unauthenticated' => 'Unauthenticated.',
+    'unauthenticated' => 'לא מאושר.',
 
-    'logout_successful' => 'Logout successful',
+    'logout_successful' => 'התנתקות בוצעה בהצלחה',
 
-    'validation_error' => 'Validation error.',
+    'validation_error' => 'שגיאת וידוא.',
 
-    'qr_code' => 'QR code.',
+    'qr_code' => 'קוד QR.',
 
-    'recovery_codes' => 'Recovery codes.',
+    'recovery_codes' => 'קודי שחזור.',
 
-    'user_details' => 'User details',
+    'user_details' => 'פרטי המשתמש',
 
-    'languages_fetched_successfully' => 'Languages fetched successfully.',
+    'languages_fetched_successfully' => 'שפות נספחו בהצלחה.',
 
-    'two_factor_required' => 'Two-factor authentication is required.',
+    'two_factor_required' => 'הזדהות דו-פקד היא נדרשת.',
 
-    'two_factor_invalid' => 'This two-factor login session is invalid or has expired.',
+    'two_factor_invalid' => 'הזדהות דו-פקד של התחברות זו אינה תקינה או פג תוקף.',
 
-    'two_factor_invalid_code' => 'The provided two-factor code is invalid.',
+    'two_factor_invalid_code' => 'קוד הזדהות דו-פקד שסופק אינו תקינ.',
 
-    'two_factor_already_enabled' => 'Two-factor authentication is already enabled.',
+    'two_factor_already_enabled' => 'הזדהות דו-פקד כבר מופעלת.',
 
-    'two_factor_enabled' => 'Two-factor authentication has been enabled.',
+    'two_factor_enabled' => 'הזדהות דו-פקד נוצרה בהצלחה.',
 
-    'two_factor_not_started' => 'Two-factor setup has not been started.',
+    'two_factor_not_started' => 'הזדהות דו-פקד לא התחילה.',
 
-    'two_factor_confirmed' => 'Two-factor authentication has been confirmed.',
+    'two_factor_confirmed' => 'הזדהות דו-פקד נאשרה בהצלחה.',
 
-    'two_factor_not_enabled' => 'Two-factor authentication is not enabled.',
+    'two_factor_not_enabled' => 'הזדהות דו-פקד אינה מופעלת.',
 
-    'two_factor_recovery_regenerated' => 'Recovery codes have been regenerated.',
+    'two_factor_recovery_regenerated' => 'קודי שחזור נוצרו בהצלחה.',
 
-    'two_factor_disabled' => 'Two-factor authentication has been disabled.',
+    'two_factor_disabled' => 'הזדהות דו-פקד נכבשה בהצלחה.',
 
-    'sensitive_action_otp_disabled' => 'Step-up verification codes are only used when the application is configured for OTP login.',
+    'sensitive_action_otp_disabled' => 'קודי שחזור של הזדהות דו-פקד נוצרו בהצלחה.',
 
-    'sensitive_action_otp_sent' => 'If eligible, a verification code has been sent for this security action.',
+    'sensitive_action_otp_sent' => 'אם מופרש להזדהות דו-פקד, נשלח קוד שחזור עבור פעולה זו.',
 
+    'invalid_credentials' => 'פרטי התחברות שגויים.',
+
+    'no_account_exists_for_this_sign_in' => 'אין חשבון לזה התחברות. אנא בדוק את דואר האלקטרוני שלך או הירשם לחשבון חדש.',
+
+    'otp_sent_to_email' => 'קוד שחזור נשלח לכתובת הדואר האלקטרוני שלך. אנא בדוק את הדואר הודעות שלך.',
 ];
