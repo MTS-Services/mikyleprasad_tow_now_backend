@@ -13,7 +13,7 @@ class OtpRepository
     }
 
     /**
-     * @param  array{user_id: int, hash: string}  $payload
+     * @param  array{user_id: int, hash: string, guest_token_hash?: string}  $payload
      */
     public function put(OtpPurpose $purpose, string $fingerprint, array $payload, int $ttlMinutes): void
     {
@@ -21,7 +21,7 @@ class OtpRepository
     }
 
     /**
-     * @return array{user_id: int, hash: string}|null
+     * @return array{user_id: int, hash: string, guest_token_hash?: string}|null
      */
     public function get(OtpPurpose $purpose, string $fingerprint): ?array
     {
@@ -31,7 +31,13 @@ class OtpRepository
             && isset($value['user_id'], $value['hash'])
             && is_int($value['user_id'])
             && is_string($value['hash'])
-            ? ['user_id' => $value['user_id'], 'hash' => $value['hash']]
+            ? array_filter([
+                'user_id' => $value['user_id'],
+                'hash' => $value['hash'],
+                'guest_token_hash' => isset($value['guest_token_hash']) && is_string($value['guest_token_hash'])
+                    ? $value['guest_token_hash']
+                    : null,
+            ], fn (mixed $item): bool => $item !== null)
             : null;
     }
 

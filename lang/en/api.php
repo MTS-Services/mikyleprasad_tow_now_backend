@@ -2,7 +2,15 @@
 
 return [
 
-    'registration_successful' => 'Registration successful',
+    'registration_successful' => 'Registration successful.',
+
+    'registration_verification_sent' => 'A verification code has been sent to your email address. Please verify to register your account.',
+
+    'pending_registration_not_found' => 'No pending registration was found for this identifier. Please register again.',
+
+    'guest_token_required' => 'A guest token is required for this OTP session.',
+
+    'guest_token_invalid' => 'This OTP session is invalid or expired. Please request a new code.',
 
     'login_successful' => 'Login successful',
 
@@ -123,6 +131,8 @@ return [
     'otp_verification_phone_missing' => 'Your account does not have a phone number on file.',
 
     'contact_verification_successful' => 'Contact verified successfully.',
+
+    'identifier_not_verified' => 'Verify your account identifier before logging in.',
 
     'otp_resend_too_soon' => 'Please wait before requesting another code.',
 

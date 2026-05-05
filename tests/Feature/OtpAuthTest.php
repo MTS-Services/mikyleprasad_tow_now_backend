@@ -22,6 +22,7 @@ beforeEach(function (): void {
     Config::set('auth_login.otp_resend_seconds', 0);
     Config::set('auth_login.otp_allow_registration_on_login', true);
     $this->seed(DatabaseSeeder::class);
+    $this->withHeader('X-Guest-Token', 'guest-test-token');
 });
 
 test('password mode rejects login otp request with code', function (): void {
@@ -101,17 +102,20 @@ test('otp mode login ignores password and still sends otp', function (): void {
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
-test('otp mode rejects register with code', function (): void {
+test('otp mode allows registration', function (): void {
     Config::set('auth_login.login_type', 'otp');
 
+    Notification::fake();
+
     $this->postJson('/api/v1/register', [
-        'name' => 'X',
+        'role' => 'user',
         'email' => 'x@example.com',
-        'password' => 'password1',
-        'password_confirmation' => 'password1',
     ])
-        ->assertUnprocessable()
-        ->assertJsonPath('code', ApiErrorCode::PasswordRegistrationDisabled->value);
+        ->assertCreated()
+        ->assertJsonPath('data.identifier', 'x@example.com')
+        ->assertJsonMissingPath('data.access_token');
+
+    expect(User::query()->where('email', 'x@example.com')->exists())->toBeTrue();
 });
 
 test('otp mode rejects forgot and reset password with code', function (): void {
@@ -143,6 +147,7 @@ test('otp verify returns token when otp matches cache', function (): void {
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
         ],
         10
     );
@@ -156,6 +161,35 @@ test('otp verify returns token when otp matches cache', function (): void {
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.user.email', 'otp-user@dev.com')
         ->assertJsonPath('data.access_token', fn ($v) => is_string($v) && $v !== '');
+});
+
+test('otp verify marks an unverified identifier before returning token', function (): void {
+    Config::set('auth_login.login_type', 'otp');
+    Config::set('auth_login.login_identifiers', ['email']);
+
+    $user = User::factory()->create([
+        'email' => 'unverified-otp@example.com',
+        'email_verified_at' => null,
+    ]);
+    $code = '525252';
+    app(OtpRepository::class)->put(
+        OtpPurpose::Login,
+        OtpRepository::fingerprint('email', 'unverified-otp@example.com'),
+        [
+            'user_id' => $user->id,
+            'hash' => OtpRepository::hashCode($code),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
+        ],
+        10
+    );
+
+    $this->postJson('/api/v1/otp/verify', [
+        'identifier' => 'unverified-otp@example.com',
+        'code' => $code,
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 });
 
 test('login otp resend cooldown returns 429 then allows after window', function (): void {
@@ -315,6 +349,7 @@ test('otp verify requires two factor when enabled', function (): void {
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($otp),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
         ],
         10
     );

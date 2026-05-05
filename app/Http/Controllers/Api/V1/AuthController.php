@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Api\V1\Auth\CompletePasswordResetWithOtpAction;
+use App\Actions\Api\V1\Auth\EnsureLoginIdentifierIsVerifiedAction;
 use App\Actions\Api\V1\Auth\RegisterUserAction;
 use App\Actions\Api\V1\Auth\RequestPasswordResetOtpAction;
 use App\Actions\Api\V1\Auth\RevokePassportTokensAction;
@@ -38,32 +39,28 @@ class AuthController extends Controller
 
     public function register(Request $request, RegisterUserAction $registerUserAction): JsonResponse
     {
-        if ($this->authLogin->loginType() === LoginType::Otp) {
-            return sendResponse(
-                status: false,
-                message: __('api.password_registration_disabled'),
-                data: null,
-                statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
-                additional: ['code' => ApiErrorCode::PasswordRegistrationDisabled->value]
-            );
-        }
 
         $result = $registerUserAction->handle($request);
 
         return sendResponse(
             status: true,
-            message: __('api.registration_successful'),
+            message: __('api.registration_verification_sent'),
             data: [
-                'token_type' => $result['token_type'],
-                'access_token' => $result['access_token'],
                 'user' => new UserResource($result['user']),
+                'identifier_type' => $result['identifier_type'],
+                'identifier' => $result['identifier'],
+                'verification_channel' => $result['verification_channel'],
+                'expires_in_minutes' => $result['expires_in_minutes'],
             ],
             statusCode: HttpStatus::HTTP_CREATED
         );
     }
 
-    public function login(LoginRequest $request, RequestLoginOtpAction $requestLoginOtpAction): JsonResponse
-    {
+    public function login(
+        LoginRequest $request,
+        RequestLoginOtpAction $requestLoginOtpAction,
+        EnsureLoginIdentifierIsVerifiedAction $ensureLoginIdentifierIsVerifiedAction
+    ): JsonResponse {
 
         if ($this->authLogin->loginType() === LoginType::Otp) {
             $otpRequest = $this->requestForLoginOtp($request);
@@ -79,6 +76,8 @@ class AuthController extends Controller
         if (! $user || $user->password === null || ! Hash::check($request->string('password')->toString(), $user->password)) {
             return sendResponse(status: false, message: __('auth.failed'), statusCode: HttpStatus::HTTP_UNAUTHORIZED);
         }
+
+        $ensureLoginIdentifierIsVerifiedAction->handle($request, $user);
 
         return $this->respondAfterPrimaryAuthentication($request, $user);
     }

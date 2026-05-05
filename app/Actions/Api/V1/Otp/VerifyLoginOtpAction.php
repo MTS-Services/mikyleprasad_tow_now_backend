@@ -2,12 +2,14 @@
 
 namespace App\Actions\Api\V1\Otp;
 
+use App\Enums\LoginIdentifierType;
 use App\Enums\LoginType;
 use App\Enums\OtpPurpose;
 use App\Models\User;
 use App\Services\Auth\AuthLoginConfiguration;
 use App\Services\Auth\LoginIdentifierDetector;
 use App\Services\Otp\OtpRepository;
+use App\Support\Auth\GuestToken;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -51,6 +53,8 @@ class VerifyLoginOtpAction
             ]);
         }
 
+        GuestToken::assertMatches($request, $stored['guest_token_hash'] ?? null);
+
         $plain = $request->string('code')->toString();
         $expected = $stored['hash'];
         $actual = OtpRepository::hashCode($plain);
@@ -71,7 +75,19 @@ class VerifyLoginOtpAction
         }
 
         $this->otpRepository->forget(OtpPurpose::Login, $fingerprint);
+        $this->markIdentifierVerified($user, $type);
 
         return $user;
+    }
+
+    private function markIdentifierVerified(User $user, LoginIdentifierType $type): void
+    {
+        if ($type === LoginIdentifierType::Email && $user->email_verified_at === null) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        if ($type === LoginIdentifierType::Phone && $user->phone_verified_at === null) {
+            $user->forceFill(['phone_verified_at' => now()])->save();
+        }
     }
 }

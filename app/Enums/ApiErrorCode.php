@@ -12,7 +12,7 @@ enum ApiErrorCode: string
     case InvalidOtpPurpose = 'INVALID_OTP_PURPOSE';
     case OtpInvalid = 'OTP_INVALID';
     case InvalidCredentials = 'INVALID_CREDENTIALS';
+    case IdentifierNotVerified = 'IDENTIFIER_NOT_VERIFIED';
     case OtpResendTooSoon = 'OTP_RESEND_TOO_SOON';
-
     case SensitiveActionOtpDisabled = 'SENSITIVE_ACTION_OTP_DISABLED';
 }

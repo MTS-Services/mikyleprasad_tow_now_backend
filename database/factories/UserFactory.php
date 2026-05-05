@@ -47,6 +47,13 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function driver(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::DRIVER,
+        ]);
+    }
+
     /**
      * Known Base32 secret for PragmaRX Google2FA (tests only).
      */
