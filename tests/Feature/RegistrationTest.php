@@ -124,7 +124,7 @@ test('registration verify creates user and returns access token', function (): v
     $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'needs-verification@example.com'),
+        OtpRepository::fingerprint('email', 'needs-verification@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
@@ -174,7 +174,7 @@ test('registration otp verify must use the same guest token session', function (
     $user = User::query()->where('email', 'guest-bound@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'guest-bound@example.com'),
+        OtpRepository::fingerprint('email', 'guest-bound@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode('333333'),
@@ -189,5 +189,5 @@ test('registration otp verify must use the same guest token session', function (
             'code' => '333333',
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['guest_token']);
+        ->assertJsonValidationErrors(['code']);
 });

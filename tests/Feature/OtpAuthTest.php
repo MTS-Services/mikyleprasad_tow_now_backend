@@ -143,7 +143,7 @@ test('otp verify returns token when otp matches cache', function (): void {
     $code = '424242';
     app(OtpRepository::class)->put(
         OtpPurpose::Login,
-        OtpRepository::fingerprint('email', 'otp-user@dev.com'),
+        OtpRepository::fingerprint('email', 'otp-user@dev.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
@@ -174,7 +174,7 @@ test('otp verify marks an unverified identifier before returning token', functio
     $code = '525252';
     app(OtpRepository::class)->put(
         OtpPurpose::Login,
-        OtpRepository::fingerprint('email', 'unverified-otp@example.com'),
+        OtpRepository::fingerprint('email', 'unverified-otp@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
@@ -218,6 +218,27 @@ test('login otp resend cooldown returns 429 then allows after window', function 
     ])->assertOk();
 });
 
+test('login otp resend cooldown is scoped to the guest token', function (): void {
+    Config::set('auth_login.login_type', 'otp');
+    Config::set('auth_login.login_identifiers', ['email']);
+    Config::set('auth_login.otp_resend_seconds', 60);
+
+    Notification::fake();
+
+    $this->withHeader('X-Guest-Token', 'profile-a')
+        ->postJson('/api/v1/otp/request', [
+            'identifier' => 'user@dev.com',
+        ])->assertOk();
+
+    $this->withHeader('X-Guest-Token', 'profile-b')
+        ->postJson('/api/v1/otp/request', [
+            'identifier' => 'user@dev.com',
+        ])->assertOk();
+
+    $user = User::query()->where('email', 'user@dev.com')->firstOrFail();
+    Notification::assertSentToTimes($user, OtpCodeNotification::class, 2);
+});
+
 test('otp resend route mirrors request endpoint', function (): void {
     Config::set('auth_login.login_type', 'otp');
     Config::set('auth_login.login_identifiers', ['email']);
@@ -232,7 +253,7 @@ test('otp resend route mirrors request endpoint', function (): void {
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
-test('otp login rejects unknown identifier when registration on login is disabled', function (): void {
+test('otp login rejects unknown identifier', function (): void {
     Config::set('auth_login.login_type', 'otp');
     Config::set('auth_login.login_identifiers', ['email']);
     Config::set('auth_login.otp_allow_registration_on_login', false);
@@ -240,8 +261,8 @@ test('otp login rejects unknown identifier when registration on login is disable
     $this->postJson('/api/v1/otp/request', [
         'identifier' => 'unknown-person@example.com',
     ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['identifier']);
+        ->assertUnauthorized()
+        ->assertJsonPath('success', false);
 });
 
 test('otp login requests notification for existing user', function (): void {
@@ -259,7 +280,7 @@ test('otp login requests notification for existing user', function (): void {
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
-test('sms otp returns service unavailable when phone is the login identifier', function (): void {
+test('sms otp returns unauthorized for an unknown phone identifier', function (): void {
     Config::set('auth_login.login_type', 'otp');
     Config::set('auth_login.login_identifiers', ['phone']);
 
@@ -267,8 +288,8 @@ test('sms otp returns service unavailable when phone is the login identifier', f
         'identifier' => '+15551234567',
         'name' => 'Caller',
     ])
-        ->assertStatus(503)
-        ->assertJsonPath('code', ApiErrorCode::SmsOtpNotAvailable->value);
+        ->assertUnauthorized()
+        ->assertJsonPath('success', false);
 });
 
 test('user_choice requires delivery when email and phone identifiers are enabled', function (): void {
@@ -345,7 +366,7 @@ test('otp verify requires two factor when enabled', function (): void {
     $otp = '919191';
     app(OtpRepository::class)->put(
         OtpPurpose::Login,
-        OtpRepository::fingerprint('email', 'twofa-otp@example.com'),
+        OtpRepository::fingerprint('email', 'twofa-otp@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($otp),

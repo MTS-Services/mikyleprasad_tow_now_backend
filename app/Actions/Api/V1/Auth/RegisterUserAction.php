@@ -89,7 +89,8 @@ class RegisterUserAction
     public function verify(Request $request): array
     {
         [$identifierType, $identifier] = $this->registrationIdentifierFromRequest($request);
-        $fingerprint = OtpRepository::fingerprint($identifierType->value, $identifier);
+        $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
+        $fingerprint = $this->guestScopedFingerprint($identifierType, $identifier, $guestTokenHash);
         $purpose = $identifierType === LoginIdentifierType::Phone ? OtpPurpose::VerifyPhone : OtpPurpose::VerifyEmail;
         $stored = $this->otpRepository->get($purpose, $fingerprint);
 
@@ -226,7 +227,7 @@ class RegisterUserAction
         $plainCode = (string) random_int((int) $min, (int) $max);
 
         $purpose = $channel === 'phone' ? OtpPurpose::VerifyPhone : OtpPurpose::VerifyEmail;
-        $fingerprint = OtpRepository::fingerprint($identifierType->value, $identifier);
+        $fingerprint = $this->guestScopedFingerprint($identifierType, $identifier, $guestTokenHash);
 
         $this->otpRepository->put(
             $purpose,
@@ -341,6 +342,11 @@ class RegisterUserAction
             LoginIdentifierType::Phone => User::query()->where('phone', $identifier)->first(),
             LoginIdentifierType::Username => User::query()->where('username', $identifier)->first(),
         };
+    }
+
+    private function guestScopedFingerprint(LoginIdentifierType $identifierType, string $identifier, string $guestTokenHash): string
+    {
+        return OtpRepository::fingerprint($identifierType->value, $identifier.'|guest:'.$guestTokenHash);
     }
 
     private function markIdentifierVerified(User $user, LoginIdentifierType $identifierType): void

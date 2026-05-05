@@ -45,8 +45,8 @@ class RequestLoginOtpAction
             'identifier_type' => $type->value,
         ]);
 
-        $fingerprint = OtpRepository::fingerprint($type->value, $normalized);
         $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
+        $fingerprint = $this->guestScopedFingerprint($type, $normalized, $guestTokenHash);
 
         $this->ensureResendCooldownAllowsSend($fingerprint);
 
@@ -124,7 +124,7 @@ class RequestLoginOtpAction
 
         return sendResponse(
             status: true,
-            message: __('api.otp_resent_to_email'),
+            message: __('api.otp_sent_to_email'),
             data: [
                 'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
             ],
@@ -266,6 +266,11 @@ class RequestLoginOtpAction
     private function loginOtpResendCacheKey(string $fingerprint): string
     {
         return sprintf('otp:login:next_send_at:%s', $fingerprint);
+    }
+
+    private function guestScopedFingerprint(LoginIdentifierType $type, string $normalized, string $guestTokenHash): string
+    {
+        return OtpRepository::fingerprint($type->value, $normalized.'|guest:'.$guestTokenHash);
     }
 
     private function ensureResendCooldownAllowsSend(string $fingerprint): void

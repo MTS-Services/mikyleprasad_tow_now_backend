@@ -44,7 +44,8 @@ class VerifyLoginOtpAction
             'identifier_type' => $type->value,
         ]);
 
-        $fingerprint = OtpRepository::fingerprint($type->value, $normalized);
+        $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
+        $fingerprint = $this->guestScopedFingerprint($type, $normalized, $guestTokenHash);
         $stored = $this->otpRepository->get(OtpPurpose::Login, $fingerprint);
 
         if ($stored === null) {
@@ -78,6 +79,11 @@ class VerifyLoginOtpAction
         $this->markIdentifierVerified($user, $type);
 
         return $user;
+    }
+
+    private function guestScopedFingerprint(LoginIdentifierType $type, string $normalized, string $guestTokenHash): string
+    {
+        return OtpRepository::fingerprint($type->value, $normalized.'|guest:'.$guestTokenHash);
     }
 
     private function markIdentifierVerified(User $user, LoginIdentifierType $type): void
