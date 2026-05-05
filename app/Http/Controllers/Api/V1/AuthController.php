@@ -38,15 +38,6 @@ class AuthController extends Controller
 
     public function register(Request $request, RegisterUserAction $registerUserAction): JsonResponse
     {
-        if ($this->authLogin->loginType() === LoginType::Otp) {
-            return sendResponse(
-                status: false,
-                message: __('api.password_registration_disabled'),
-                data: null,
-                statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
-                additional: ['code' => ApiErrorCode::PasswordRegistrationDisabled->value]
-            );
-        }
 
         $result = $registerUserAction->handle($request);
 

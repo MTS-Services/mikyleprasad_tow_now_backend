@@ -101,17 +101,16 @@ test('otp mode login ignores password and still sends otp', function (): void {
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
-test('otp mode rejects register with code', function (): void {
+test('otp mode allows registration', function (): void {
     Config::set('auth_login.login_type', 'otp');
 
     $this->postJson('/api/v1/register', [
-        'name' => 'X',
+        'role' => 'user',
         'email' => 'x@example.com',
-        'password' => 'password1',
-        'password_confirmation' => 'password1',
     ])
-        ->assertUnprocessable()
-        ->assertJsonPath('code', ApiErrorCode::PasswordRegistrationDisabled->value);
+        ->assertCreated()
+        ->assertJsonPath('data.user.email', 'x@example.com')
+        ->assertJsonPath('data.user.role', 'user');
 });
 
 test('otp mode rejects forgot and reset password with code', function (): void {

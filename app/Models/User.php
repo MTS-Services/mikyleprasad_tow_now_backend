@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -41,6 +42,10 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     protected static function booted(): void
     {
         static::creating(function (User $user): void {
+            if ($user->username === null || $user->username === '') {
+                $user->username = generate_username_hybrid();
+            }
+
             if ($user->locale === null || $user->locale === '') {
                 $user->locale = 'en';
             }
@@ -98,6 +103,14 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     public function loginHistories(): HasMany
     {
         return $this->hasMany(UserLoginHistory::class, 'user_id', 'id')->orderByDesc('id');
+    }
+
+    /**
+     * @return HasOne<DriverProfile, $this>
+     */
+    public function driverProfile(): HasOne
+    {
+        return $this->hasOne(DriverProfile::class, 'user_id', 'id');
     }
 
     /**
