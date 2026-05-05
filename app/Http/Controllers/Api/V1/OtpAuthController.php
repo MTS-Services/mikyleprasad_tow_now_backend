@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Api\V1\Auth\EnsureLoginIdentifierIsVerifiedAction;
 use App\Actions\Api\V1\Otp\RequestLoginOtpAction;
 use App\Actions\Api\V1\Otp\VerifyLoginOtpAction;
 use App\Enums\ApiErrorCode;
@@ -37,8 +38,11 @@ class OtpAuthController extends Controller
         return $action->handle($request);
     }
 
-    public function verify(LoginOtpVerifyRequest $request, VerifyLoginOtpAction $action): JsonResponse
-    {
+    public function verify(
+        LoginOtpVerifyRequest $request,
+        VerifyLoginOtpAction $action,
+        EnsureLoginIdentifierIsVerifiedAction $ensureLoginIdentifierIsVerifiedAction
+    ): JsonResponse {
         if ($this->authLogin->loginType() !== LoginType::Otp) {
             return sendResponse(
                 status: false,
@@ -50,6 +54,7 @@ class OtpAuthController extends Controller
         }
 
         $user = $action->handle($request);
+        $ensureLoginIdentifierIsVerifiedAction->handle($request, $user);
 
         return $this->respondAfterPrimaryAuthentication($request, $user);
     }

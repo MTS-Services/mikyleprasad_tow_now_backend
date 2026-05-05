@@ -2,7 +2,9 @@
 
 return [
 
-    'registration_successful' => 'Registration successful',
+    'registration_successful' => 'Registration successful. Verify your account before logging in.',
+
+    'registration_verification_sent' => 'Registration successful. A verification code has been sent to your account identifier.',
 
     'login_successful' => 'Login successful',
 
@@ -121,6 +123,8 @@ return [
     'otp_verification_phone_missing' => 'Your account does not have a phone number on file.',
 
     'contact_verification_successful' => 'Contact verified successfully.',
+
+    'identifier_not_verified' => 'Verify your account identifier before logging in.',
 
     'otp_resend_too_soon' => 'Please wait before requesting another code.',
 

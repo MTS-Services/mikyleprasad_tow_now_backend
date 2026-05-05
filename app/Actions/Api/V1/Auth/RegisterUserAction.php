@@ -2,25 +2,32 @@
 
 namespace App\Actions\Api\V1\Auth;
 
+use App\Enums\ApiErrorCode;
+use App\Enums\LoginIdentifierType;
+use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\DriverProfile;
 use App\Models\User;
-use App\Services\Auth\UserLoginHistoryRecorder;
+use App\Notifications\Auth\OtpCodeNotification;
+use App\Services\Auth\AuthLoginConfiguration;
+use App\Services\Otp\OtpRepository;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class RegisterUserAction
 {
     public function __construct(
-        protected IssuePersonalAccessTokenAction $issuePersonalAccessTokenAction,
-        protected UserLoginHistoryRecorder $userLoginHistoryRecorder,
+        protected AuthLoginConfiguration $authLogin,
+        protected OtpRepository $otpRepository,
     ) {}
 
     /**
-     * @return array{user: User, access_token: string, token_type: string}
+     * @return array{user: User, verification_channel: string, expires_in_minutes: int}
      *
      * @throws ValidationException
      */
@@ -75,6 +82,8 @@ class RegisterUserAction
         ])->validate();
 
         $role = UserRole::from($validated['role']);
+        $verificationChannel = $this->verificationChannelForRegistration();
+        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
 
         $user = DB::transaction(function () use ($request, $role, $validated): User {
             $user = User::query()->create([
@@ -103,18 +112,67 @@ class RegisterUserAction
             return $user;
         });
 
-        $accessToken = $this->issuePersonalAccessTokenAction->handle(
-            $user,
-            $validated['device_name'] ?? null
-        );
-
         $user = $user->fresh(['driverProfile']);
-        $this->userLoginHistoryRecorder->record($user, $request);
+        $this->sendVerificationOtp($user, $verificationChannel);
 
         return [
             'user' => $user,
-            'access_token' => $accessToken,
-            'token_type' => 'Bearer',
+            'verification_channel' => $verificationChannel,
+            'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
         ];
+    }
+
+    /**
+     * @return 'email'|'phone'
+     */
+    private function verificationChannelForRegistration(): string
+    {
+        $identifiers = $this->authLogin->loginIdentifierTypes();
+
+        if (count($identifiers) === 1 && $identifiers[0] === LoginIdentifierType::Phone) {
+            return 'phone';
+        }
+
+        return 'email';
+    }
+
+    /**
+     * @return 'email'|'phone'
+     */
+    private function sendVerificationOtp(User $user, string $channel): string
+    {
+        $length = $this->authLogin->otpCodeLength();
+        $min = 10 ** ($length - 1);
+        $max = (10 ** $length) - 1;
+        $plainCode = (string) random_int((int) $min, (int) $max);
+
+        $this->otpRepository->put(
+            OtpPurpose::VerifyEmail,
+            OtpRepository::fingerprint('user', (string) $user->id),
+            [
+                'user_id' => $user->id,
+                'hash' => OtpRepository::hashCode($plainCode),
+            ],
+            $this->authLogin->otpTtlMinutes()
+        );
+
+        $user->notify(new OtpCodeNotification($plainCode, OtpPurpose::VerifyEmail));
+
+        return $channel;
+    }
+
+    private function ensureVerificationDeliveryIsAvailable(string $channel): void
+    {
+        if ($channel !== 'phone') {
+            return;
+        }
+
+        throw new HttpResponseException(sendResponse(
+            status: false,
+            message: __('api.sms_otp_not_available'),
+            data: null,
+            statusCode: HttpStatus::HTTP_SERVICE_UNAVAILABLE,
+            additional: ['code' => ApiErrorCode::SmsOtpNotAvailable->value]
+        ));
     }
 }

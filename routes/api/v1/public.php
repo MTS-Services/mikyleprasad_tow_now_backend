@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->group(function () {
     Route::post('/register', 'register');
+    Route::post('/register/verification/otp/verify', 'verifyRegisteredContact')->middleware(['throttle:api-verification-otp-verify']);
     // Route::post('/register', 'register')->middleware(['throttle:api-register']);
     Route::post('/login', 'login')->middleware(['throttle:api-login']);
     Route::post('/two-factor-challenge', 'twoFactorChallenge')->middleware(['throttle:api-login']);

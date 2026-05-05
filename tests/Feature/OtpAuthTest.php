@@ -104,13 +104,16 @@ test('otp mode login ignores password and still sends otp', function (): void {
 test('otp mode allows registration', function (): void {
     Config::set('auth_login.login_type', 'otp');
 
+    Notification::fake();
+
     $this->postJson('/api/v1/register', [
         'role' => 'user',
         'email' => 'x@example.com',
     ])
         ->assertCreated()
         ->assertJsonPath('data.user.email', 'x@example.com')
-        ->assertJsonPath('data.user.role', 'user');
+        ->assertJsonPath('data.user.role', 'user')
+        ->assertJsonMissingPath('data.access_token');
 });
 
 test('otp mode rejects forgot and reset password with code', function (): void {
@@ -155,6 +158,33 @@ test('otp verify returns token when otp matches cache', function (): void {
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.user.email', 'otp-user@dev.com')
         ->assertJsonPath('data.access_token', fn ($v) => is_string($v) && $v !== '');
+});
+
+test('otp verify blocks login for unverified identifier', function (): void {
+    Config::set('auth_login.login_type', 'otp');
+    Config::set('auth_login.login_identifiers', ['email']);
+
+    $user = User::factory()->create([
+        'email' => 'unverified-otp@example.com',
+        'email_verified_at' => null,
+    ]);
+    $code = '525252';
+    app(OtpRepository::class)->put(
+        OtpPurpose::Login,
+        OtpRepository::fingerprint('email', 'unverified-otp@example.com'),
+        [
+            'user_id' => $user->id,
+            'hash' => OtpRepository::hashCode($code),
+        ],
+        10
+    );
+
+    $this->postJson('/api/v1/otp/verify', [
+        'identifier' => 'unverified-otp@example.com',
+        'code' => $code,
+    ])
+        ->assertForbidden()
+        ->assertJsonPath('code', 'IDENTIFIER_NOT_VERIFIED');
 });
 
 test('login otp resend cooldown returns 429 then allows after window', function (): void {
