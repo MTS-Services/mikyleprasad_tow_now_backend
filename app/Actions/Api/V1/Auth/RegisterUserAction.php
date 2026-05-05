@@ -141,10 +141,10 @@ class RegisterUserAction
     {
         return Validator::make($request->all(), [
             'role' => ['required', 'string', Rule::in([UserRole::USER->value, UserRole::DRIVER->value])],
-            'name' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'name' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
             'phone' => [
-                'required_if:role,'.UserRole::DRIVER->value,
+                'required_if:role,' . UserRole::DRIVER->value,
                 'nullable',
                 'string',
                 'max:32',
@@ -153,36 +153,35 @@ class RegisterUserAction
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'locale' => ['nullable', 'string', 'max:24'],
             'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'car_brand' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'car_model' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'car_type' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'car_brand' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'car_model' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'car_type' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'license_plate' => [
-                'required_if:role,'.UserRole::DRIVER->value,
+                'required_if:role,' . UserRole::DRIVER->value,
                 'nullable',
                 'string',
                 'max:64',
                 Rule::unique(DriverProfile::class),
             ],
-            'location' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
+            'location' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'truck_image' => [
-                'required_if:role,'.UserRole::DRIVER->value,
+                'required_if:role,' . UserRole::DRIVER->value,
                 'file',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
             'driving_license_image' => [
-                'required_if:role,'.UserRole::DRIVER->value,
+                'required_if:role,' . UserRole::DRIVER->value,
                 'file',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
             'car_legal_documents' => [
-                'required_if:role,'.UserRole::DRIVER->value,
+                'required_if:role,' . UserRole::DRIVER->value,
                 'file',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
+                'mimes:jpg,jpeg,png,webp,pdf,doc,docx',
                 'max:5120',
             ],
         ])->validate();
@@ -346,7 +345,7 @@ class RegisterUserAction
 
     private function guestScopedFingerprint(LoginIdentifierType $identifierType, string $identifier, string $guestTokenHash): string
     {
-        return OtpRepository::fingerprint($identifierType->value, $identifier.'|guest:'.$guestTokenHash);
+        return OtpRepository::fingerprint($identifierType->value, $identifier . '|guest:' . $guestTokenHash);
     }
 
     private function markIdentifierVerified(User $user, LoginIdentifierType $identifierType): void
