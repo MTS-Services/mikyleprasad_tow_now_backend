@@ -6,6 +6,8 @@ return [
 
     'registration_verification_sent' => 'Registration successful. A verification code has been sent to your account identifier.',
 
+    'pending_registration_not_found' => 'No pending registration was found for this identifier. Please register again.',
+
     'login_successful' => 'Login successful',
 
     'unauthenticated' => 'Unauthenticated.',

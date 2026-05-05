@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Notifications\Auth\OtpCodeNotification;
@@ -27,19 +26,14 @@ test('user registration requires role and email and generates a visual username'
         'email' => 'customer@example.com',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.user.email', 'customer@example.com')
-        ->assertJsonPath('data.user.role', UserRole::USER->value)
+        ->assertJsonPath('data.identifier_type', 'email')
+        ->assertJsonPath('data.identifier', 'customer@example.com')
         ->assertJsonMissingPath('data.access_token')
-        ->assertJsonPath('data.verification_channel', 'email')
-        ->assertJsonPath('data.user.username', fn ($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
+        ->assertJsonPath('data.verification_channel', 'email');
 
-    $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
+    expect(User::query()->where('email', 'customer@example.com')->exists())->toBeFalse();
 
-    expect($user->name)->toBeNull()
-        ->and($user->email_verified_at)->toBeNull()
-        ->and($user->username)->not->toBeNull();
-
-    Notification::assertSentTo($user, OtpCodeNotification::class);
+    Notification::assertSentOnDemand(OtpCodeNotification::class);
 });
 
 test('admin cannot register', function (): void {
@@ -91,55 +85,62 @@ test('driver registration creates related profile and stores documents', functio
     ])
         ->assertCreated()
         ->assertJsonMissingPath('data.access_token')
-        ->assertJsonPath('data.user.role', UserRole::DRIVER->value)
-        ->assertJsonPath('data.user.driver_profile.car_brand', 'Ford');
+        ->assertJsonPath('data.identifier_type', 'email')
+        ->assertJsonPath('data.identifier', 'driver@example.com');
 
-    $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
-    $profile = $user->driverProfile()->firstOrFail();
+    expect(User::query()->where('email', 'driver@example.com')->exists())->toBeFalse();
 
-    Storage::disk('public')->assertExists($profile->truck_image_path);
-    Storage::disk('public')->assertExists($profile->driving_license_image_path);
-    Storage::disk('public')->assertExists($profile->car_legal_documents_path);
-    Notification::assertSentTo($user, OtpCodeNotification::class);
+    Notification::assertSentOnDemand(OtpCodeNotification::class);
 });
 
-test('unverified user cannot login until registration identifier is verified', function (): void {
-    $user = User::factory()->create([
+test('registration verify creates user and returns access token', function (): void {
+    Notification::fake();
+
+    $this->postJson('/api/v1/register', [
+        'role' => UserRole::USER->value,
         'email' => 'needs-verification@example.com',
-        'email_verified_at' => null,
         'password' => 'password',
-    ]);
+        'password_confirmation' => 'password',
+    ])->assertCreated();
 
     $this->postJson('/api/v1/login', [
         'email' => 'needs-verification@example.com',
         'password' => 'password',
     ])
-        ->assertForbidden()
-        ->assertJsonPath('code', 'IDENTIFIER_NOT_VERIFIED');
+        ->assertUnauthorized();
 
     $code = '123456';
-    app(OtpRepository::class)->put(
-        OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('user', (string) $user->id),
-        [
-            'user_id' => $user->id,
-            'hash' => OtpRepository::hashCode($code),
-        ],
-        10
-    );
+    cache()->put('registration:otp:'.OtpRepository::fingerprint('email', 'needs-verification@example.com'), [
+        'hash' => OtpRepository::hashCode($code),
+    ], now()->addMinutes(10));
 
-    $this->postJson('/api/v1/register/verification/otp/verify', [
-        'identifier_type' => 'email',
-        'identifier' => 'needs-verification@example.com',
+    $this->postJson('/api/v1/otp/register/verify', [
+        'email' => 'needs-verification@example.com',
         'code' => $code,
     ])
-        ->assertOk()
-        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '');
+        ->assertCreated()
+        ->assertJsonPath('data.user.email', 'needs-verification@example.com')
+        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 
-    $this->postJson('/api/v1/login', [
-        'email' => 'needs-verification@example.com',
-        'password' => 'password',
+    $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
+
+    expect($user->username)->not->toBeNull();
+});
+
+test('registration otp can be resent before verification', function (): void {
+    Notification::fake();
+
+    $this->postJson('/api/v1/register', [
+        'role' => UserRole::USER->value,
+        'email' => 'resend@example.com',
+    ])->assertCreated();
+
+    $this->postJson('/api/v1/otp/register/resend', [
+        'email' => 'resend@example.com',
     ])
         ->assertOk()
-        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
+        ->assertJsonPath('data.verification_channel', 'email');
+
+    Notification::assertSentOnDemand(OtpCodeNotification::class, 2);
 });

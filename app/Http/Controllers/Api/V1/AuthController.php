@@ -8,18 +8,14 @@ use App\Actions\Api\V1\Auth\RegisterUserAction;
 use App\Actions\Api\V1\Auth\RequestPasswordResetOtpAction;
 use App\Actions\Api\V1\Auth\RevokePassportTokensAction;
 use App\Actions\Api\V1\Otp\RequestLoginOtpAction;
-use App\Actions\Api\V1\Otp\VerifyContactVerificationOtpAction;
 use App\Enums\ApiErrorCode;
-use App\Enums\LoginIdentifierType;
 use App\Enums\LoginType;
 use App\Http\Controllers\Concerns\CompletesApiLogin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
-use App\Http\Requests\Api\V1\RegisteredContactVerificationOtpVerifyRequest;
 use App\Http\Requests\Api\V1\ResetPasswordRequest;
 use App\Http\Requests\Api\V1\TwoFactor\TwoFactorChallengeRequest;
-use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
 use App\Services\Auth\AuthLoginConfiguration;
 use App\Services\Auth\LoginIdentifierDetector;
@@ -49,50 +45,12 @@ class AuthController extends Controller
             status: true,
             message: __('api.registration_verification_sent'),
             data: [
-                'user' => new UserResource($result['user']),
+                'identifier_type' => $result['identifier_type'],
+                'identifier' => $result['identifier'],
                 'verification_channel' => $result['verification_channel'],
                 'expires_in_minutes' => $result['expires_in_minutes'],
             ],
             statusCode: HttpStatus::HTTP_CREATED
-        );
-    }
-
-    public function verifyRegisteredContact(
-        RegisteredContactVerificationOtpVerifyRequest $request,
-        VerifyContactVerificationOtpAction $action
-    ): JsonResponse {
-        $identifierType = LoginIdentifierType::from($request->string('identifier_type')->toString());
-        [, $identifier] = app(LoginIdentifierDetector::class)->resolve(
-            $identifierType->value,
-            $request->string('identifier')->toString(),
-            [$identifierType]
-        );
-
-        $user = match ($identifierType) {
-            LoginIdentifierType::Email => User::query()->where('email', $identifier)->first(),
-            LoginIdentifierType::Phone => User::query()->where('phone', $identifier)->first(),
-            LoginIdentifierType::Username => User::query()->where('username', $identifier)->first(),
-        };
-
-        if ($user === null) {
-            throw ValidationException::withMessages([
-                'identifier' => [__('api.no_account_exists_for_this_sign_in')],
-            ]);
-        }
-
-        $request->merge([
-            'channel' => $identifierType === LoginIdentifierType::Phone ? 'phone' : 'email',
-        ]);
-
-        $fresh = $action->handle($request, $user);
-
-        return sendResponse(
-            status: true,
-            message: __('api.contact_verification_successful'),
-            data: [
-                'user' => new UserResource($fresh),
-            ],
-            statusCode: HttpStatus::HTTP_OK
         );
     }
 

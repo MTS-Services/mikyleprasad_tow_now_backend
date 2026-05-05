@@ -10,10 +10,15 @@ use App\Models\DriverProfile;
 use App\Models\User;
 use App\Notifications\Auth\OtpCodeNotification;
 use App\Services\Auth\AuthLoginConfiguration;
+use App\Services\Auth\LoginIdentifierDetector;
+use App\Services\Auth\UserLoginHistoryRecorder;
 use App\Services\Otp\OtpRepository;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -23,17 +28,123 @@ class RegisterUserAction
 {
     public function __construct(
         protected AuthLoginConfiguration $authLogin,
-        protected OtpRepository $otpRepository,
+        protected IssuePersonalAccessTokenAction $issuePersonalAccessTokenAction,
+        protected UserLoginHistoryRecorder $userLoginHistoryRecorder,
     ) {}
 
     /**
-     * @return array{user: User, verification_channel: string, expires_in_minutes: int}
+     * @return array{identifier_type: string, identifier: string, verification_channel: string, expires_in_minutes: int}
      *
      * @throws ValidationException
      */
     public function handle(Request $request): array
     {
-        $validated = Validator::make($request->all(), [
+        $validated = $this->validatedRegistrationPayload($request);
+        $verificationChannel = $this->verificationChannelForRegistration();
+        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
+
+        $identifierType = $verificationChannel === 'phone' ? LoginIdentifierType::Phone : LoginIdentifierType::Email;
+        $identifier = $this->registrationIdentifier($identifierType, $validated);
+        $pending = $this->pendingPayload($request, $validated);
+
+        Cache::put(
+            $this->pendingRegistrationCacheKey($identifierType, $identifier),
+            $pending,
+            now()->addMinutes($this->authLogin->otpTtlMinutes())
+        );
+
+        $this->sendVerificationOtp($identifierType, $identifier, $verificationChannel);
+
+        return [
+            'identifier_type' => $identifierType->value,
+            'identifier' => $identifier,
+            'verification_channel' => $verificationChannel,
+            'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
+        ];
+    }
+
+    /**
+     * @return array{verification_channel: string, expires_in_minutes: int}
+     */
+    public function resend(Request $request): array
+    {
+        [$identifierType, $identifier] = $this->registrationIdentifierFromRequest($request);
+        $pending = Cache::get($this->pendingRegistrationCacheKey($identifierType, $identifier));
+
+        if (! is_array($pending)) {
+            throw ValidationException::withMessages([
+                $identifierType->value => [__('api.pending_registration_not_found')],
+            ]);
+        }
+
+        $verificationChannel = $identifierType === LoginIdentifierType::Phone ? 'phone' : 'email';
+        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
+        $this->sendVerificationOtp($identifierType, $identifier, $verificationChannel);
+
+        return [
+            'verification_channel' => $verificationChannel,
+            'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
+        ];
+    }
+
+    /**
+     * @return array{user: User, access_token: string, token_type: string}
+     */
+    public function verify(Request $request): array
+    {
+        [$identifierType, $identifier] = $this->registrationIdentifierFromRequest($request);
+        $fingerprint = OtpRepository::fingerprint($identifierType->value, $identifier);
+        $otpKey = $this->registrationOtpCacheKey($fingerprint);
+        $stored = Cache::get($otpKey);
+
+        if (! is_array($stored) || ! isset($stored['hash']) || ! is_string($stored['hash'])) {
+            throw ValidationException::withMessages([
+                'code' => [__('api.otp_invalid_or_expired')],
+            ]);
+        }
+
+        if (! hash_equals($stored['hash'], OtpRepository::hashCode($request->string('code')->toString()))) {
+            throw ValidationException::withMessages([
+                'code' => [__('api.otp_invalid_or_expired')],
+            ]);
+        }
+
+        $pendingKey = $this->pendingRegistrationCacheKey($identifierType, $identifier);
+        $pending = Cache::get($pendingKey);
+
+        if (! is_array($pending)) {
+            Cache::forget($otpKey);
+
+            throw ValidationException::withMessages([
+                $identifierType->value => [__('api.pending_registration_not_found')],
+            ]);
+        }
+
+        $user = $this->createUserFromPendingPayload($pending, $identifierType);
+
+        Cache::forget($otpKey);
+        Cache::forget($pendingKey);
+
+        $accessToken = $this->issuePersonalAccessTokenAction->handle(
+            $user,
+            $request->string('device_name')->toString() ?: null
+        );
+
+        $this->userLoginHistoryRecorder->record($user, $request);
+
+        return [
+            'user' => $user->fresh(['driverProfile']),
+            'access_token' => $accessToken,
+            'token_type' => 'Bearer',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatedRegistrationPayload(Request $request): array
+    {
+        return Validator::make($request->all(), [
             'role' => ['required', 'string', Rule::in([UserRole::USER->value, UserRole::DRIVER->value])],
             'name' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
@@ -80,46 +191,6 @@ class RegisterUserAction
                 'max:5120',
             ],
         ])->validate();
-
-        $role = UserRole::from($validated['role']);
-        $verificationChannel = $this->verificationChannelForRegistration();
-        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
-
-        $user = DB::transaction(function () use ($request, $role, $validated): User {
-            $user = User::query()->create([
-                'name' => $validated['name'] ?? null,
-                'email' => $validated['email'],
-                'phone' => $validated['phone'] ?? null,
-                'locale' => $validated['locale'] ?? 'en',
-                'password' => $validated['password'] ?? null,
-                'role' => $role,
-            ]);
-
-            if ($role === UserRole::DRIVER) {
-                DriverProfile::query()->create([
-                    'user_id' => $user->id,
-                    'car_brand' => $validated['car_brand'],
-                    'car_model' => $validated['car_model'],
-                    'car_type' => $validated['car_type'],
-                    'license_plate' => $validated['license_plate'],
-                    'location' => $validated['location'],
-                    'truck_image_path' => $request->file('truck_image')->store('driver-profiles/trucks', 'public'),
-                    'driving_license_image_path' => $request->file('driving_license_image')->store('driver-profiles/licenses', 'public'),
-                    'car_legal_documents_path' => $request->file('car_legal_documents')->store('driver-profiles/documents', 'public'),
-                ]);
-            }
-
-            return $user;
-        });
-
-        $user = $user->fresh(['driverProfile']);
-        $this->sendVerificationOtp($user, $verificationChannel);
-
-        return [
-            'user' => $user,
-            'verification_channel' => $verificationChannel,
-            'expires_in_minutes' => $this->authLogin->otpTtlMinutes(),
-        ];
     }
 
     /**
@@ -137,26 +208,61 @@ class RegisterUserAction
     }
 
     /**
-     * @return 'email'|'phone'
+     * @param  array<string, mixed>  $validated
      */
-    private function sendVerificationOtp(User $user, string $channel): string
+    private function registrationIdentifier(LoginIdentifierType $identifierType, array $validated): string
+    {
+        return match ($identifierType) {
+            LoginIdentifierType::Email => strtolower((string) $validated['email']),
+            LoginIdentifierType::Phone => (string) $validated['phone'],
+            LoginIdentifierType::Username => strtolower((string) $validated['username']),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function pendingPayload(Request $request, array $validated): array
+    {
+        $pending = $validated;
+
+        foreach (['truck_image', 'driving_license_image', 'car_legal_documents'] as $field) {
+            unset($pending[$field]);
+        }
+
+        if (UserRole::from($validated['role']) !== UserRole::DRIVER) {
+            return $pending;
+        }
+
+        $pending['truck_image_path'] = $request->file('truck_image')->store('pending-driver-profiles/trucks', 'public');
+        $pending['driving_license_image_path'] = $request->file('driving_license_image')->store('pending-driver-profiles/licenses', 'public');
+        $pending['car_legal_documents_path'] = $request->file('car_legal_documents')->store('pending-driver-profiles/documents', 'public');
+
+        return $pending;
+    }
+
+    private function sendVerificationOtp(LoginIdentifierType $identifierType, string $identifier, string $channel): string
     {
         $length = $this->authLogin->otpCodeLength();
         $min = 10 ** ($length - 1);
         $max = (10 ** $length) - 1;
         $plainCode = (string) random_int((int) $min, (int) $max);
 
-        $this->otpRepository->put(
-            OtpPurpose::VerifyEmail,
-            OtpRepository::fingerprint('user', (string) $user->id),
+        $purpose = $channel === 'phone' ? OtpPurpose::VerifyPhone : OtpPurpose::VerifyEmail;
+        $fingerprint = OtpRepository::fingerprint($identifierType->value, $identifier);
+
+        Cache::put(
+            $this->registrationOtpCacheKey($fingerprint),
             [
-                'user_id' => $user->id,
                 'hash' => OtpRepository::hashCode($plainCode),
             ],
-            $this->authLogin->otpTtlMinutes()
+            now()->addMinutes($this->authLogin->otpTtlMinutes())
         );
 
-        $user->notify(new OtpCodeNotification($plainCode, OtpPurpose::VerifyEmail));
+        if ($channel === 'email') {
+            Notification::route('mail', $identifier)->notify(new OtpCodeNotification($plainCode, $purpose));
+        }
 
         return $channel;
     }
@@ -174,5 +280,100 @@ class RegisterUserAction
             statusCode: HttpStatus::HTTP_SERVICE_UNAVAILABLE,
             additional: ['code' => ApiErrorCode::SmsOtpNotAvailable->value]
         ));
+    }
+
+    /**
+     * @return array{0: LoginIdentifierType, 1: string}
+     */
+    private function registrationIdentifierFromRequest(Request $request): array
+    {
+        $identifiers = $this->authLogin->loginIdentifierTypes();
+
+        if (count($identifiers) > 1) {
+            $identifier = trim($request->string('identifier')->toString());
+
+            if ($identifier === '') {
+                throw ValidationException::withMessages([
+                    'identifier' => [__('validation.required', ['attribute' => 'identifier'])],
+                ]);
+            }
+
+            return app(LoginIdentifierDetector::class)->resolve(null, $identifier, $identifiers);
+        }
+
+        $type = $identifiers[0];
+        $field = $type->value;
+        $identifier = trim($request->string('identifier')->toString() ?: $request->string($field)->toString());
+
+        if ($identifier === '') {
+            throw ValidationException::withMessages([
+                $field => [__('validation.required', ['attribute' => $field])],
+            ]);
+        }
+
+        if ($type === LoginIdentifierType::Email && ! filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages([
+                $field => [__('validation.email', ['attribute' => $field])],
+            ]);
+        }
+
+        return [$type, $type === LoginIdentifierType::Email ? strtolower($identifier) : $identifier];
+    }
+
+    /**
+     * @param  array<string, mixed>  $pending
+     */
+    private function createUserFromPendingPayload(array $pending, LoginIdentifierType $identifierType): User
+    {
+        $role = UserRole::from((string) $pending['role']);
+
+        return DB::transaction(function () use ($pending, $role, $identifierType): User {
+            $user = User::query()->create([
+                'name' => $pending['name'] ?? null,
+                'email' => $pending['email'],
+                'phone' => $pending['phone'] ?? null,
+                'locale' => $pending['locale'] ?? 'en',
+                'password' => $pending['password'] ?? null,
+                'role' => $role,
+                'email_verified_at' => $identifierType === LoginIdentifierType::Email ? now() : null,
+                'phone_verified_at' => $identifierType === LoginIdentifierType::Phone ? now() : null,
+            ]);
+
+            if ($role === UserRole::DRIVER) {
+                DriverProfile::query()->create([
+                    'user_id' => $user->id,
+                    'car_brand' => $pending['car_brand'],
+                    'car_model' => $pending['car_model'],
+                    'car_type' => $pending['car_type'],
+                    'license_plate' => $pending['license_plate'],
+                    'location' => $pending['location'],
+                    'truck_image_path' => $this->movePendingFile((string) $pending['truck_image_path'], 'driver-profiles/trucks'),
+                    'driving_license_image_path' => $this->movePendingFile((string) $pending['driving_license_image_path'], 'driver-profiles/licenses'),
+                    'car_legal_documents_path' => $this->movePendingFile((string) $pending['car_legal_documents_path'], 'driver-profiles/documents'),
+                ]);
+            }
+
+            return $user;
+        });
+    }
+
+    private function movePendingFile(string $pendingPath, string $targetDirectory): string
+    {
+        $filename = basename($pendingPath);
+        $targetPath = $targetDirectory.'/'.$filename;
+
+        Storage::disk('public')->move($pendingPath, $targetPath);
+
+        return $targetPath;
+    }
+
+    private function pendingRegistrationCacheKey(LoginIdentifierType $identifierType, string $identifier): string
+    {
+        return 'registration:pending:'.OtpRepository::fingerprint($identifierType->value, $identifier);
+    }
+
+    private function registrationOtpCacheKey(string $fingerprint): string
+    {
+        return 'registration:otp:'.$fingerprint;
     }
 }

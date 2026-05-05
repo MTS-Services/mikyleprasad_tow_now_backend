@@ -111,9 +111,10 @@ test('otp mode allows registration', function (): void {
         'email' => 'x@example.com',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.user.email', 'x@example.com')
-        ->assertJsonPath('data.user.role', 'user')
+        ->assertJsonPath('data.identifier', 'x@example.com')
         ->assertJsonMissingPath('data.access_token');
+
+    expect(User::query()->where('email', 'x@example.com')->exists())->toBeFalse();
 });
 
 test('otp mode rejects forgot and reset password with code', function (): void {
