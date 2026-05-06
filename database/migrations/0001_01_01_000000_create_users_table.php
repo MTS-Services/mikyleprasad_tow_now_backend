@@ -25,7 +25,7 @@ return new class extends Migration
             $table->text('bio')->nullable();
             $table->string('status', 32)->default(AccountStatus::ACTIVE->value);
             $table->string('approval_status', 32)->default(ApprovalStatus::PENDING->value);
-
+            $table->boolean('is_suspended')->default(false);
 
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();

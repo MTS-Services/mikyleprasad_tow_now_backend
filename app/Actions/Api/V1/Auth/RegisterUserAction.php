@@ -150,12 +150,17 @@ class RegisterUserAction
                 'max:32',
                 Rule::unique(User::class),
             ],
+            'address' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
+            'bio' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'locale' => ['nullable', 'string', 'max:24'],
             'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'car_brand' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'car_model' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'car_type' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+
+
+            'car_name' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'brand' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'model' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'capacity' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'license_plate' => [
                 'required_if:role,' . UserRole::DRIVER->value,
                 'nullable',
@@ -163,7 +168,6 @@ class RegisterUserAction
                 'max:64',
                 Rule::unique(Vehicle::class),
             ],
-            'location' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'truck_image' => [
                 'required_if:role,' . UserRole::DRIVER->value,
                 'file',
@@ -313,20 +317,24 @@ class RegisterUserAction
                 'phone' => $validated['phone'] ?? null,
                 'locale' => $validated['locale'] ?? 'en',
                 'password' => $validated['password'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'bio' => $validated['bio'] ?? null,
                 'role' => $role,
             ]);
 
             if ($role === UserRole::DRIVER) {
                 Vehicle::query()->create([
                     'user_id' => $user->id,
-                    'car_brand' => $validated['car_brand'],
-                    'car_model' => $validated['car_model'],
-                    'car_type' => $validated['car_type'],
+                    'name' => $validated['car_name'],
+                    'description' => $validated['description'],
+                    'brand' => $validated['brand'],
+                    'model' => $validated['model'],
+                    'capacity' => $validated['capacity'],
                     'license_plate' => $validated['license_plate'],
-                    'location' => $validated['location'],
-                    'truck_image_path' => $request->file('truck_image')->store('driver-profiles/trucks', 'public'),
-                    'driving_license_image_path' => $request->file('driving_license_image')->store('driver-profiles/licenses', 'public'),
-                    'car_legal_documents_path' => $request->file('car_legal_documents')->store('driver-profiles/documents', 'public'),
+                    'truck_image' => $request->file('truck_image')->store('driver-profiles/trucks', 'public'),
+                    'driving_license_image' => $request->file('driving_license_image')->store('driver-profiles/licenses', 'public'),
+                    'legal_documents' => $request->file('car_legal_documents')->store('driver-profiles/documents', 'public'),
+                    'insurance_status' => false,
                 ]);
             }
 

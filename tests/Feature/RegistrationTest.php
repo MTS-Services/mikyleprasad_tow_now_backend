@@ -60,11 +60,13 @@ test('driver registration requires profile fields', function (): void {
         ->assertJsonValidationErrors([
             'name',
             'phone',
-            'car_brand',
-            'car_model',
-            'car_type',
+            'address',
+            'bio',
+            'car_name',
+            'brand',
+            'model',
+            'capacity',
             'license_plate',
-            'location',
             'truck_image',
             'driving_license_image',
             'car_legal_documents',
@@ -80,11 +82,13 @@ test('driver registration creates related profile and stores documents', functio
         'email' => 'driver@example.com',
         'name' => 'Casey Driver',
         'phone' => '+15551234567',
-        'car_brand' => 'Ford',
-        'car_model' => 'F-550',
-        'car_type' => 'tow truck',
+        'address' => '123 Main St, Anytown, USA',
+        'bio' => 'I am a driver',
+        'car_name' => 'Ford',
+        'brand' => 'Ford',
+        'model' => 'F-550',
+        'capacity' => '10000',
         'license_plate' => 'TOW-1234',
-        'location' => 'Dhaka',
         'truck_image' => UploadedFile::fake()->image('truck.png'),
         'driving_license_image' => UploadedFile::fake()->image('license.png'),
         'car_legal_documents' => UploadedFile::fake()->image('documents.png'),
@@ -97,9 +101,9 @@ test('driver registration creates related profile and stores documents', functio
     $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
     $vehicle = $user->vehicle()->firstOrFail();
 
-    Storage::disk('public')->assertExists($vehicle->truck_image_path);
-    Storage::disk('public')->assertExists($vehicle->driving_license_image_path);
-    Storage::disk('public')->assertExists($vehicle->car_legal_documents_path);
+    Storage::disk('public')->assertExists($vehicle->truck_image);
+    Storage::disk('public')->assertExists($vehicle->driving_license_image);
+    Storage::disk('public')->assertExists($vehicle->legal_documents);
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 

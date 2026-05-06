@@ -10,14 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'user_id',
-    'car_brand',
-    'car_model',
-    'car_type',
+    'name',
+    'description',
+    'brand',
+    'model',
+    'capacity',
     'license_plate',
-    'location',
-    'truck_image_path',
-    'driving_license_image_path',
-    'car_legal_documents_path',
+    'truck_image',
+    'driving_license_image',
+    'legal_documents',
+    'insurance_status',
 ])]
 class Vehicle extends Model
 {
