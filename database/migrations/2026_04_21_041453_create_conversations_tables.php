@@ -19,15 +19,6 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
-
-        Schema::create('conversation_participants', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamps();
-
-            $table->unique(['conversation_id', 'user_id']);
-        });
     }
 
     /**
@@ -35,7 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('conversation_participants');
         Schema::dropIfExists('conversations');
     }
 };
