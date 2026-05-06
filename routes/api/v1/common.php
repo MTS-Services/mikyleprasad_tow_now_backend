@@ -17,6 +17,7 @@ Route::controller(AuthController::class)->group(function () {
 
 Route::controller(ContactVerificationOtpController::class)->prefix('verification/otp')->group(function () {
     Route::post('/request', 'request')->middleware(['throttle:api-verification-otp-request']);
+    Route::post('/resend', 'request')->middleware(['throttle:api-verification-otp-request']);
     Route::post('/verify', 'verify')->middleware(['throttle:api-verification-otp-verify']);
 });
 
