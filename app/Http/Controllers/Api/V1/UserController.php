@@ -12,7 +12,7 @@ class UserController extends Controller
 {
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->loadMissing('preferredCurrency');
+        $user = $request->user()->loadMissing('preferredCurrency', 'vehicle');
 
         return sendResponse(
             status: true,

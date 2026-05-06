@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\AccountStatus;
+use App\Enums\ApprovalStatus;
+use App\Enums\UserRole;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,9 +17,14 @@ return new class extends Migration
 
             $table->string('name')->nullable();
             $table->string('email')->unique();
-            $table->string('role', 32)->default('user');
+            $table->string('role', 32)->default(UserRole::USER->value);
             $table->string('phone')->nullable()->unique();
             $table->string('locale', 24)->default('en');
+
+            $table->string('address', 500)->nullable();
+            $table->text('bio')->nullable();
+            $table->string('status', 32)->default(AccountStatus::ACTIVE->value);
+            $table->string('approval_status', 32)->default(ApprovalStatus::PENDING->value);
 
 
             $table->timestamp('email_verified_at')->nullable();

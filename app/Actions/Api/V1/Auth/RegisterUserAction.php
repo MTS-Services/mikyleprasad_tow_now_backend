@@ -6,7 +6,7 @@ use App\Enums\ApiErrorCode;
 use App\Enums\LoginIdentifierType;
 use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
-use App\Models\DriverProfile;
+use App\Models\Vehicle;
 use App\Models\User;
 use App\Notifications\Auth\OtpCodeNotification;
 use App\Services\Auth\AuthLoginConfiguration;
@@ -50,7 +50,7 @@ class RegisterUserAction
         $this->sendVerificationOtp($user, $identifierType, $identifier, $verificationChannel, $guestTokenHash);
 
         return [
-            'user' => $user->fresh(['driverProfile']),
+            'user' => $user->fresh(['vehicle']),
             'identifier_type' => $identifierType->value,
             'identifier' => $identifier,
             'verification_channel' => $verificationChannel,
@@ -128,7 +128,7 @@ class RegisterUserAction
         $this->userLoginHistoryRecorder->record($user, $request);
 
         return [
-            'user' => $user->fresh(['driverProfile']),
+            'user' => $user->fresh(['Vehicle']),
             'access_token' => $accessToken,
             'token_type' => 'Bearer',
         ];
@@ -161,7 +161,7 @@ class RegisterUserAction
                 'nullable',
                 'string',
                 'max:64',
-                Rule::unique(DriverProfile::class),
+                Rule::unique(Vehicle::class),
             ],
             'location' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'truck_image' => [
@@ -317,7 +317,7 @@ class RegisterUserAction
             ]);
 
             if ($role === UserRole::DRIVER) {
-                DriverProfile::query()->create([
+                Vehicle::query()->create([
                     'user_id' => $user->id,
                     'car_brand' => $validated['car_brand'],
                     'car_model' => $validated['car_model'],

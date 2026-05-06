@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Database\Factories\DriverProfileFactory;
+use Database\Factories\VehicleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,9 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'driving_license_image_path',
     'car_legal_documents_path',
 ])]
-class DriverProfile extends Model
+class Vehicle extends Model
 {
-    /** @use HasFactory<DriverProfileFactory> */
+    /** @use HasFactory<VehicleFactory> */
     use HasFactory;
 
     /**

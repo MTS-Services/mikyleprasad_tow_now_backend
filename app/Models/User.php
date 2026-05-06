@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\AccountStatus;
+use App\Enums\ApprovalStatus;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -28,8 +30,16 @@ use Laravel\Passport\HasApiTokens;
     'preferred_currency_id',
     'password',
     'role',
+    'status',
+    'approval_status',
+    'address',
+    'bio',
     'email_verified_at',
     'phone_verified_at',
+    'two_factor_secret',
+    'two_factor_recovery_codes',
+    'two_factor_confirmed_at',
+    'remember_token',
 ])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements CanResetPasswordContract, OAuthenticatable
@@ -73,6 +83,8 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
             'password' => 'hashed',
             'role' => UserRole::class,
             'two_factor_confirmed_at' => 'datetime',
+            'status' => AccountStatus::class,
+            'approval_status' => ApprovalStatus::class,
         ];
     }
 
@@ -106,11 +118,11 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     }
 
     /**
-     * @return HasOne<DriverProfile, $this>
+     * @return HasOne<Vehicle, $this>
      */
-    public function driverProfile(): HasOne
+    public function vehicle(): HasOne
     {
-        return $this->hasOne(DriverProfile::class, 'user_id', 'id');
+        return $this->hasOne(Vehicle::class, 'user_id', 'id');
     }
 
     /**

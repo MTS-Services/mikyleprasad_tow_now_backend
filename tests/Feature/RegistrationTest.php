@@ -33,7 +33,7 @@ test('user registration requires role and email and generates a visual username'
         ->assertJsonMissingPath('data.access_token')
         ->assertJsonPath('data.verification_channel', 'email')
         ->assertJsonPath('data.user.email', 'customer@example.com')
-        ->assertJsonPath('data.user.username', fn ($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
+        ->assertJsonPath('data.user.username', fn($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
 
     $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
 
@@ -95,11 +95,11 @@ test('driver registration creates related profile and stores documents', functio
         ->assertJsonPath('data.identifier', 'driver@example.com');
 
     $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
-    $profile = $user->driverProfile()->firstOrFail();
+    $vehicle = $user->vehicle()->firstOrFail();
 
-    Storage::disk('public')->assertExists($profile->truck_image_path);
-    Storage::disk('public')->assertExists($profile->driving_license_image_path);
-    Storage::disk('public')->assertExists($profile->car_legal_documents_path);
+    Storage::disk('public')->assertExists($vehicle->truck_image_path);
+    Storage::disk('public')->assertExists($vehicle->driving_license_image_path);
+    Storage::disk('public')->assertExists($vehicle->car_legal_documents_path);
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
@@ -124,7 +124,7 @@ test('registration verify creates user and returns access token', function (): v
     $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'needs-verification@example.com|guest:'.hash('sha256', 'guest-test-token')),
+        OtpRepository::fingerprint('email', 'needs-verification@example.com|guest:' . hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
@@ -139,8 +139,8 @@ test('registration verify creates user and returns access token', function (): v
     ])
         ->assertCreated()
         ->assertJsonPath('data.user.email', 'needs-verification@example.com')
-        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
-        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
+        ->assertJsonPath('data.user.email_verified_at', fn($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.access_token', fn($value): bool => is_string($value) && $value !== '');
 
     expect($user->username)->not->toBeNull();
 });
@@ -174,7 +174,7 @@ test('registration otp verify must use the same guest token session', function (
     $user = User::query()->where('email', 'guest-bound@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'guest-bound@example.com|guest:'.hash('sha256', 'guest-test-token')),
+        OtpRepository::fingerprint('email', 'guest-bound@example.com|guest:' . hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode('333333'),
