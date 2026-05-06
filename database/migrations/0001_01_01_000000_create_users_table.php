@@ -10,16 +10,27 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            $table->string('username')->nullable()->unique();
+
             $table->string('name')->nullable();
             $table->string('email')->unique();
             $table->string('role', 32)->default('user');
-            $table->string('phone')->nullable();
+            $table->string('phone')->nullable()->unique();
             $table->string('locale', 24)->default('en');
+
+
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
+            $table->timestamp('phone_verified_at')->nullable();
+
+
             $table->text('two_factor_secret')->nullable();
             $table->text('two_factor_recovery_codes')->nullable();
             $table->timestamp('two_factor_confirmed_at')->nullable();
+
+            $table->string('timezone', 64)->nullable();
+            $table->foreignId('preferred_currency_id')->nullable()->constrained('currencies')->nullOnDelete();
+
             $table->rememberToken();
             $table->timestamps();
         });
