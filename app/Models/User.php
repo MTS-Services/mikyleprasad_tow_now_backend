@@ -10,6 +10,7 @@ use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -132,5 +133,35 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     public function products(): HasMany
     {
         return $this->hasMany(Product::class, 'user_id', 'id');
+    }
+
+    public function scopeFilter(Builder $query, $filter)
+    {
+        // Search 
+        $query->when($filter['search'] ?? null, function ($query, $search) {
+            $query->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('username', 'like', "%{$search}%");
+        });
+
+        // $status 
+        $query->when($filter['status'] ?? null, function ($query, $status) {
+            $query->where('status', $status);
+        });
+        
+        // $approval_status 
+        $query->when($filter['approval_status'] ?? null, function ($query, $approval_status) {
+            $query->where('approval_status', $approval_status);
+        });
+
+        // $is_suspended 
+        $query->when($filter['is_suspended'] ?? null, function ($query, $is_suspended) {
+            $query->where('is_suspended', $is_suspended);
+        });
+
+        // $is_featured 
+        $query->when($filter['is_featured'] ?? null, function ($query, $is_featured) {
+            $query->where('is_featured', $is_featured);
+        });
     }
 }

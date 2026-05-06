@@ -17,6 +17,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
@@ -118,6 +119,14 @@ class RequestLoginOtpAction
             $this->authLogin->otpTtlMinutes()
         );
 
+        Log::info('Login OTP Code Generated', [
+            'code' => $plainCode,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'purpose' => OtpPurpose::Login->value,
+            'fingerprint' => $fingerprint,
+        ]);
+        
         $user->notify(new OtpCodeNotification($plainCode, OtpPurpose::Login));
 
         $this->recordResendCooldown($fingerprint);

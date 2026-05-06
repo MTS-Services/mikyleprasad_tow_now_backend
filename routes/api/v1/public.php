@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CurrencyController;
+use App\Http\Controllers\Api\V1\Driver\DriverController;
 use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\OtpAuthController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,10 @@ Route::controller(OtpAuthController::class)->prefix('otp')->group(function () {
     Route::post('/verify', 'verify')->middleware(['throttle:api-otp-verify']);
     Route::post('/register/resend', 'resendRegistration')->middleware(['throttle:api-verification-otp-request']);
     Route::post('/register/verify', 'verifyRegistration')->middleware(['throttle:api-verification-otp-verify']);
+});
+
+Route::controller(DriverController::class)->prefix('driver')->group(function () {
+    Route::get('/', 'index');
 });
 
 Route::get('/languages', [LanguageController::class, 'index']);

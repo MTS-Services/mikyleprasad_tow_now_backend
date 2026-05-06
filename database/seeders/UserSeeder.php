@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AccountStatus;
+use App\Enums\ApprovalStatus;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -95,6 +97,71 @@ class UserSeeder extends Seeder
                 'name' => 'Demo User',
                 'password' => Hash::make('password'),
                 'role' => UserRole::USER,
+                'email_verified_at' => now(),
+                'address' => '123 Main St, Anytown, USA',
+                'bio' => 'I am a demo user',
+            ]
+        );
+        User::query()->firstOrCreate(
+            ['email' => 'driver1@dev.com'],
+            [
+                'name' => 'Demo Driver 1',
+                'password' => Hash::make('password'),
+                'role' => UserRole::DRIVER,
+                'status' => AccountStatus::ACTIVE,
+                'approval_status' => ApprovalStatus::APPROVED,
+                'email_verified_at' => now(),
+                'address' => '123 Main St, Anytown, USA',
+                'bio' => 'I am a demo user',
+            ]
+        );
+        User::query()->firstOrCreate(
+            ['email' => 'driver2@dev.com'],
+            [
+                'name' => 'Demo Driver 2',
+                'password' => Hash::make('password'),
+                'role' => UserRole::DRIVER,
+                'status' => AccountStatus::ACTIVE,
+                'approval_status' => ApprovalStatus::APPROVED,
+                'email_verified_at' => now(),
+                'address' => '123 Main St, Anytown, USA',
+                'bio' => 'I am a demo user',
+            ]
+        );
+        User::query()->firstOrCreate(
+            ['email' => 'driver3@dev.com'],
+            [
+                'name' => 'Demo Driver 3',
+                'password' => Hash::make('password'),
+                'role' => UserRole::DRIVER,
+                'status' => AccountStatus::ACTIVE,
+                'approval_status' => ApprovalStatus::APPROVED,
+                'email_verified_at' => now(),
+                'address' => '123 Main St, Anytown, USA',
+                'bio' => 'I am a demo user',
+            ]
+        );
+        User::query()->firstOrCreate(
+            ['email' => 'driver5@dev.com'],
+            [
+                'name' => 'Demo Driver 5',
+                'password' => Hash::make('password'),
+                'role' => UserRole::DRIVER,
+                'status' => AccountStatus::ACTIVE,
+                'approval_status' => ApprovalStatus::APPROVED,
+                'email_verified_at' => now(),
+                'address' => '123 Main St, Anytown, USA',
+                'bio' => 'I am a demo user',
+            ]
+        );
+        User::query()->firstOrCreate(
+            ['email' => 'driver6@dev.com'],
+            [
+                'name' => 'Demo Driver 6',
+                'password' => Hash::make('password'),
+                'role' => UserRole::DRIVER,
+                'status' => AccountStatus::ACTIVE,
+                'approval_status' => ApprovalStatus::APPROVED,
                 'email_verified_at' => now(),
                 'address' => '123 Main St, Anytown, USA',
                 'bio' => 'I am a demo user',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\DriverMiddleware;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureUser;
 use App\Http\Middleware\SetLocale;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role.user' => EnsureUser::class,
             'role.admin' => EnsureAdmin::class,
+            'role.driver' => DriverMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
