@@ -36,7 +36,7 @@ class UserResource extends JsonResource
                 'license_plate' => $this->vehicle->license_plate,
                 'truck_image_url' => storage_url($this->vehicle->truck_image),
                 'driving_license_image_url' => storage_url($this->vehicle->driving_license_image),
-                'legal_documents_url' => storage_url($this->vehicle->legalDocuments),
+                'legal_documents_url' => storage_url($this->vehicle->legal_documents),
                 'insurance_status' => $this->vehicle->insurance_status,
             ]),
             'address' => $this->address,

@@ -151,7 +151,7 @@ class RegisterUserAction
                 Rule::unique(User::class),
             ],
             'address' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
-            'bio' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
+            'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'locale' => ['nullable', 'string', 'max:24'],
             'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -160,7 +160,7 @@ class RegisterUserAction
             'car_name' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'brand' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'model' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'capacity' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'capacity' => ['sometimes', 'nullable', 'string', 'max:255'],
             'license_plate' => [
                 'required_if:role,' . UserRole::DRIVER->value,
                 'nullable',
@@ -183,7 +183,7 @@ class RegisterUserAction
                 'max:5120',
             ],
             'car_legal_documents' => [
-                'required_if:role,' . UserRole::DRIVER->value,
+                'sometimes',
                 'file',
                 'mimes:jpg,jpeg,png,webp,pdf,doc,docx',
                 'max:5120',
@@ -326,14 +326,14 @@ class RegisterUserAction
                 Vehicle::query()->create([
                     'user_id' => $user->id,
                     'name' => $validated['car_name'],
-                    'description' => $validated['description'],
-                    'brand' => $validated['brand'],
-                    'model' => $validated['model'],
-                    'capacity' => $validated['capacity'],
+                    'description' => $validated['description'] ?? null,
+                    'brand' => $validated['brand'] ?? null,
+                    'model' => $validated['model'] ?? null,
+                    'capacity' => $validated['capacity'] ?? null,
                     'license_plate' => $validated['license_plate'],
                     'truck_image' => $request->file('truck_image')->store('driver-profiles/trucks', 'public'),
                     'driving_license_image' => $request->file('driving_license_image')->store('driver-profiles/licenses', 'public'),
-                    'legal_documents' => $request->file('car_legal_documents')->store('driver-profiles/documents', 'public'),
+                    'legal_documents' => $request->file('legal_documents')->store('driver-profiles/documents', 'public'),
                     'insurance_status' => false,
                 ]);
             }
