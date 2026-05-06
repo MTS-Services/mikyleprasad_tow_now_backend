@@ -57,9 +57,9 @@ class UserSeeder extends Seeder
             ]
         );
         User::query()->firstOrCreate(
-            ['email' => 'admin@dev.com'],
+            ['email' => 'akhtaruzzamansumon7@gmail.com'],
             [
-                'name' => 'Admin',
+                'name' => 'Akhtaruzzaman Sumon',
                 'phone' => null,
                 'locale' => 'en',
                 'password' => Hash::make('password'),
