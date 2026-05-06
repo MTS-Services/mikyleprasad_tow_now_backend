@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\User\ProductController;
+use App\Http\Controllers\Api\V1\User\RideController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -11,4 +12,8 @@ Route::get('/ping', function (Request $request) {
     ]);
 });
 
+
+
 Route::apiResource('products', ProductController::class);
+Route::apiResource('rides', RideController::class);
+
