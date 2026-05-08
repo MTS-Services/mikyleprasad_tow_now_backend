@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('currency:sync-rates')
     ->dailyAt('00:00')
     ->when(fn (): bool => (bool) config('currency.fx_sync.enabled'));
+
+Schedule::command('rides:expire-pending')
+    ->everyMinute()
+    ->withoutOverlapping();

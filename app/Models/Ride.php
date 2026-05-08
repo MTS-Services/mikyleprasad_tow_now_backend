@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\RideCancelledByEnum;
 use App\Enums\RideStatusEnum;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
@@ -14,9 +18,21 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
     'pickup_location',
     'dropoff_location',
     'notes',
+    'eta_minutes',
+    'eta_reason',
+    'cancel_reason',
+    'cancelled_by',
     'total_arrival_time',
     'total_ride_time',
+    'total_arrival_minutes',
+    'total_ride_minutes',
     'expired_at',
+    'accepted_at',
+    'arrived_at',
+    'picked_up_at',
+    'completion_requested_at',
+    'completed_at',
+    'cancelled_at',
 ])]
 
 
@@ -24,6 +40,13 @@ class Ride extends Model
 {
     protected $casts = [
         'expired_at' => 'datetime',
+        'accepted_at' => 'datetime',
+        'arrived_at' => 'datetime',
+        'picked_up_at' => 'datetime',
+        'completion_requested_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'cancelled_by' => RideCancelledByEnum::class,
         'status' => RideStatusEnum::class,
     ];
 
@@ -34,5 +57,37 @@ class Ride extends Model
                 $ride->uuid = generate_uuid();
             }
         });
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    /**
+     * @return HasOne<Conversation, $this>
+     */
+    public function conversation(): HasOne
+    {
+        return $this->hasOne(Conversation::class, 'ride_id');
+    }
+
+    /**
+     * @return HasMany<RideHistory, $this>
+     */
+    public function histories(): HasMany
+    {
+        return $this->hasMany(RideHistory::class, 'ride_id')->orderByDesc('id');
     }
 }

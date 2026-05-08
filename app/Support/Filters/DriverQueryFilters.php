@@ -14,24 +14,21 @@ class DriverQueryFilters
      */
     public function apply(Builder $query, array $filters): Builder
     {
+        $status = strtolower((string) ($filters['status'] ?? ''));
+
         return $query
             ->when(
                 trim((string) ($filters['q'] ?? '')) !== '',
                 fn (Builder $builder): Builder => $this->applySearch($builder, (string) $filters['q'])
             )
             ->when(
-                ($filters['status'] ?? null) === 'Online',
+                $status === 'online',
                 fn (Builder $builder): Builder => $builder
                     ->where('status', AccountStatus::ACTIVE->value)
-                    ->where('is_suspended', false)
             )
             ->when(
-                ($filters['status'] ?? null) === 'Offline',
-                fn (Builder $builder): Builder => $builder->where(function (Builder $offline): void {
-                    $offline
-                        ->where('status', AccountStatus::INACTIVE->value)
-                        ->orWhere('is_suspended', true);
-                })
+                $status === 'offline',
+                fn (Builder $builder): Builder => $builder->where('status', AccountStatus::INACTIVE->value)
             );
     }
 

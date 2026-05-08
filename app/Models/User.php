@@ -134,4 +134,20 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     {
         return $this->hasMany(Product::class, 'user_id', 'id');
     }
+
+    /**
+     * @return HasMany<Ride, $this>
+     */
+    public function requestedRides(): HasMany
+    {
+        return $this->hasMany(Ride::class, 'user_id', 'id')->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<Ride, $this>
+     */
+    public function assignedRides(): HasMany
+    {
+        return $this->hasMany(Ride::class, 'driver_id', 'id')->orderByDesc('id');
+    }
 }

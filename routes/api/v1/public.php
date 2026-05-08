@@ -31,3 +31,5 @@ Route::get('/languages', [LanguageController::class, 'index']);
 Route::get('/currencies', [CurrencyController::class, 'index']);
 
 Route::get('/drivers/find', [DriverSearchController::class, 'index']);
+Route::get('/drivers/stats', [DriverSearchController::class, 'stats']);
+Route::get('/drivers/{id}', [DriverSearchController::class, 'show']);

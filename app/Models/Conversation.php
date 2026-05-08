@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'created_by'])]
+#[Fillable(['ride_id', 'name', 'created_by'])]
 class Conversation extends Model
 {
     /** @use HasFactory<ConversationFactory> */
@@ -41,6 +41,14 @@ class Conversation extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * @return BelongsTo<Ride, $this>
+     */
+    public function ride(): BelongsTo
+    {
+        return $this->belongsTo(Ride::class, 'ride_id');
     }
 
     /**

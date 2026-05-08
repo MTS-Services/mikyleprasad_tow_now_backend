@@ -15,5 +15,9 @@ Route::get('/ping', function (Request $request) {
 
 
 Route::apiResource('products', ProductController::class);
-Route::apiResource('rides', RideController::class);
+Route::get('rides/active', [RideController::class, 'active']);
+Route::post('rides/{ride}/cancel', [RideController::class, 'cancel']);
+Route::post('rides/{ride}/complete', [RideController::class, 'complete']);
+Route::post('rides/{ride}/complete/approve', [RideController::class, 'approveCompletion']);
+Route::apiResource('rides', RideController::class)->only(['store', 'index', 'show']);
 

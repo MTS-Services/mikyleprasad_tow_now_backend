@@ -21,6 +21,7 @@ class ConversationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'ride_id' => $this->ride_id,
             'name' => $this->name,
             'created_by' => $this->created_by,
             'created_at' => $this->created_at?->toIso8601String(),
