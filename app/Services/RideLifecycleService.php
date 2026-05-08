@@ -25,6 +25,27 @@ class RideLifecycleService
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
+    public function getStats(User $user)
+    {
+        return [
+            'pending' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::REQUESTED->value)->count(),
+            'active' => Ride::query()->where('user_id', $user->id)->whereIn('status', [
+                RideStatusEnum::ACCEPTED->value,
+                RideStatusEnum::ARRIVED->value,
+                RideStatusEnum::PICKED_UP->value,
+                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
+            ])->count(),
+            'completed' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::COMPLETED_USER->value)->count(),
+            'cancelled' => Ride::query()->where('user_id', $user->id)->whereIn('status', [
+                RideStatusEnum::CANCELLED_BY_DRIVER->value,
+                RideStatusEnum::CANCELLED_BY_USER->value,
+                RideStatusEnum::EXPIRED->value,
+            ])->count(),
+            'expired' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::EXPIRED->value)->count(),
+            'total' => Ride::query()->where('user_id', $user->id)->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)->count(),
+        ];
+    }
+
     /**
      * @param  array{driver_id: int, pickup_location: string, dropoff_location: string, notes?: ?string}  $data
      */
