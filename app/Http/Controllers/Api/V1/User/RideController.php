@@ -9,16 +9,16 @@ use App\Http\Requests\Api\V1\Ride\StoreRideRequest;
 use App\Http\Resources\Api\V1\RideResource;
 use App\Models\Ride;
 use App\Services\RideLifecycleService;
-use App\Support\Filters\RideQueryFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class RideController extends Controller
 {
     public function __construct(
-        private readonly RideLifecycleService $rideLifecycleService,
-        private readonly RideQueryFilters $rideQueryFilters,
+        private readonly RideLifecycleService $rideLifecycleService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -31,6 +31,7 @@ class RideController extends Controller
             'to' => ['sometimes', 'date'],
             'sort' => ['sometimes', 'in:latest,oldest'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         $rides = $this->rideLifecycleService->getRides($request->user(), $validated);
@@ -45,14 +46,22 @@ class RideController extends Controller
 
     public function store(StoreRideRequest $request): JsonResponse
     {
-        $ride = $this->rideLifecycleService->createRequest($request->user(), $request->validated());
+        try {
+            $ride = $this->rideLifecycleService->createRequest($request->user(), $request->validated());
 
-        return sendResponse(
-            status: true,
-            message: 'Ride request created successfully.',
-            data: new RideResource($ride),
-            statusCode: HttpStatus::HTTP_CREATED
-        );
+            return sendResponse(
+                status: true,
+                message: 'Ride request created successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_CREATED
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode()
+            );
+        }
     }
 
     public function active(Request $request): JsonResponse
@@ -77,8 +86,6 @@ class RideController extends Controller
             statusCode: HttpStatus::HTTP_OK
         );
     }
-
-
 
     public function show(Request $request, Ride $ride): JsonResponse
     {
@@ -130,5 +137,32 @@ class RideController extends Controller
             data: new RideResource($ride),
             statusCode: HttpStatus::HTTP_OK
         );
+    }
+
+    public function updateStatus(Request $request, string $rideId): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::enum(RideStatusEnum::class)],
+        ]);
+
+        try {
+            $ride = $this->rideLifecycleService->getRide($rideId, 'id');
+            $user = $request->user();
+            $status = RideStatusEnum::from($validated['status']);
+            $ride = $this->rideLifecycleService->updateStatus($ride, $user, $status);
+
+            return sendResponse(
+                status: true,
+                message: 'Ride status updated successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode()
+            );
+        }
     }
 }

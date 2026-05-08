@@ -13,8 +13,6 @@ Route::get('/ping', function (Request $request) {
     ]);
 });
 
-
-
 Route::apiResource('products', ProductController::class);
 Route::get('dashboard', [RideController::class, 'dashboard']);
 Route::get('rides/active', [RideController::class, 'active']);
@@ -26,7 +24,7 @@ Route::controller(DashboardController::class)->group(function () {
     Route::get('/stats', 'stats');
 });
 
-Route::controller(RideController::class)->group(function () {
-    //
+Route::controller(RideController::class)->prefix('rides')->group(function () {
+    Route::post('{driverId}/status', 'updateStatus');
 });
 Route::apiResource('rides', RideController::class)->only(['store', 'index', 'show']);

@@ -169,7 +169,7 @@ class RideLifecycleController extends Controller
     {
         return match ($tab) {
             'active' => [
-                RideStatusEnum::ACCEPTED->value,
+                RideStatusEnum::ACTIVE->value,
                 RideStatusEnum::ARRIVED->value,
                 RideStatusEnum::PICKED_UP->value,
             ],

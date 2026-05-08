@@ -11,4 +11,9 @@ return [
         'rejected' => 'Your manufacturer account has been rejected.',
     ],
 
+    'driver' => [
+        'pending' => 'Your driver account is waiting for approval. Please wait until admin approval.',
+        'rejected' => 'Your driver account has been rejected. Please contact support if you believe this is an error.',
+    ],
+
 ];

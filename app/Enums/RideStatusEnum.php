@@ -5,7 +5,7 @@ namespace App\Enums;
 enum RideStatusEnum: string
 {
     case PENDING = 'pending';
-    case ACCEPTED = 'accepted';
+    case ACTIVE = 'active';
     case ARRIVED = 'arrived';
     case PICKED_UP = 'picked_up';
     case COMPLETED_USER = 'completed_user';
@@ -30,7 +30,7 @@ enum RideStatusEnum: string
     {
         return match ($this) {
             self::PENDING => 'Pending',
-            self::ACCEPTED => 'Accepted',
+            self::ACTIVE => 'Active',
             self::ARRIVED => 'Arrived',
             self::PICKED_UP => 'Picked Up',
             self::COMPLETED_USER => 'Completed (User)',
@@ -43,14 +43,24 @@ enum RideStatusEnum: string
         };
     }
 
+    public function isCompleted(): bool
+    {
+        return $this === self::COMPLETED_USER || $this === self::COMPLETED_DRIVER_PENDING_USER;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this === self::CANCELLED_BY_USER || $this === self::CANCELLED_BY_DRIVER || $this === self::SYSTEM_CANCELLED;
+    }
+
     public function isPending(): bool
     {
         return $this === self::PENDING;
     }
 
-    public function isAccepted(): bool
+    public function isActive(): bool
     {
-        return $this === self::ACCEPTED;
+        return $this === self::ACTIVE;
     }
 
     public function isArrived(): bool

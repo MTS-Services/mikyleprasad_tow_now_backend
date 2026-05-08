@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ApprovalStatus;
 use App\Jobs\TranslateModelJob;
 use App\Models\Currency;
 use App\Models\Product;
@@ -120,6 +121,43 @@ test('admin role cannot access user-only routes', function (): void {
     Passport::actingAs($admin);
 
     $this->getJson('/api/v1/user/ping')->assertForbidden();
+});
+
+test('approved driver can access driver routes', function (): void {
+    $driver = User::query()->where('email', 'driver@dev.com')->firstOrFail();
+    $driver->forceFill([
+        'approval_status' => ApprovalStatus::APPROVED,
+    ])->save();
+
+    Passport::actingAs($driver);
+
+    $this->getJson('/api/v1/driver/dashboard')->assertOk();
+});
+
+test('pending driver cannot access driver routes', function (): void {
+    $driver = User::query()->where('email', 'driver@dev.com')->firstOrFail();
+    $driver->forceFill([
+        'approval_status' => ApprovalStatus::PENDING,
+    ])->save();
+
+    Passport::actingAs($driver);
+
+    $this->getJson('/api/v1/driver/dashboard')
+        ->assertForbidden()
+        ->assertJsonPath('message', __('auth.driver.pending'));
+});
+
+test('rejected driver cannot access driver routes', function (): void {
+    $driver = User::query()->where('email', 'driver@dev.com')->firstOrFail();
+    $driver->forceFill([
+        'approval_status' => ApprovalStatus::REJECTED,
+    ])->save();
+
+    Passport::actingAs($driver);
+
+    $this->getJson('/api/v1/driver/dashboard')
+        ->assertForbidden()
+        ->assertJsonPath('message', __('auth.driver.not_approved'));
 });
 
 test('currencies index is public', function (): void {
