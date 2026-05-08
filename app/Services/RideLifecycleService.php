@@ -18,17 +18,20 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use App\Support\Filters\RideQueryFilters;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class RideLifecycleService
 {
     public function __construct(
         private readonly UserNotificationService $userNotificationService,
+        private readonly RideQueryFilters $rideQueryFilters,
     ) {}
 
     public function getStats(User $user)
     {
         return [
-            'pending' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::REQUESTED->value)->count(),
+            'pending' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::PENDING->value)->count(),
             'active' => Ride::query()->where('user_id', $user->id)->whereIn('status', [
                 RideStatusEnum::ACCEPTED->value,
                 RideStatusEnum::ARRIVED->value,
@@ -44,6 +47,24 @@ class RideLifecycleService
             'expired' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::EXPIRED->value)->count(),
             'total' => Ride::query()->where('user_id', $user->id)->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)->count(),
         ];
+    }
+
+    public function getRides(User $user, ?array $validated = null): LengthAwarePaginator
+    {
+        $perPage = (int) ($validated['per_page'] ?? 15);
+
+        $query = Ride::query()
+            ->where('user_id', $user->id)
+            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
+            ->with(['driver', 'conversation']);
+
+
+        $rides = $this->rideQueryFilters
+            ->apply($query, $validated)
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return $rides;
     }
 
     /**
@@ -70,7 +91,7 @@ class RideLifecycleService
             $ride = Ride::query()->create([
                 'user_id' => $user->id,
                 'driver_id' => $driver->id,
-                'status' => RideStatusEnum::REQUESTED->value,
+                'status' => RideStatusEnum::PENDING->value,
                 'pickup_location' => $data['pickup_location'],
                 'dropoff_location' => $data['dropoff_location'],
                 'notes' => $data['notes'] ?? null,
@@ -87,7 +108,7 @@ class RideLifecycleService
             $this->logConversationActivity($conversation, $user->id, 'ride.requested', [
                 'ride_id' => $ride->id,
             ]);
-            $this->logRideHistory($ride, $user, RideHistoryTypeEnum::STATUS, null, RideStatusEnum::REQUESTED);
+            $this->logRideHistory($ride, $user, RideHistoryTypeEnum::STATUS, null, RideStatusEnum::PENDING);
 
             $this->userNotificationService->notify(
                 recipient: $driver,
@@ -141,8 +162,8 @@ class RideLifecycleService
         if ($ride->driver_id !== $driver->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        if ($ride->status !== RideStatusEnum::REQUESTED) {
-            throw new HttpException(422, 'Only requested rides can be accepted.');
+        if ($ride->status !== RideStatusEnum::PENDING) {
+            throw new HttpException(422, 'Only pending rides can be accepted.');
         }
         $this->assertNotSystemCancelled($ride);
 
@@ -342,7 +363,7 @@ class RideLifecycleService
     public function expirePendingRides(): int
     {
         $rides = Ride::query()
-            ->where('status', RideStatusEnum::REQUESTED->value)
+            ->where('status', RideStatusEnum::PENDING->value)
             ->whereNotNull('expired_at')
             ->where('expired_at', '<=', now())
             ->with(['user', 'driver', 'conversation'])
@@ -357,7 +378,7 @@ class RideLifecycleService
                     'cancelled_at' => now(),
                 ])->save();
 
-                $this->logRideHistory($ride, null, RideHistoryTypeEnum::STATUS, RideStatusEnum::REQUESTED, RideStatusEnum::EXPIRED, 'expired');
+                $this->logRideHistory($ride, null, RideHistoryTypeEnum::STATUS, RideStatusEnum::PENDING, RideStatusEnum::EXPIRED, 'expired');
                 $this->logConversationActivity($ride->conversation, null, 'ride.expired');
             });
         }
@@ -370,7 +391,7 @@ class RideLifecycleService
         /** @var Collection<int, Ride> $rides */
         $rides = Ride::query()
             ->whereKeyNot($acceptedRide->id)
-            ->where('status', RideStatusEnum::REQUESTED->value)
+            ->where('status', RideStatusEnum::PENDING->value)
             ->where(function (Builder $query) use ($acceptedRide): void {
                 $query->where('driver_id', $acceptedRide->driver_id)
                     ->orWhere('user_id', $acceptedRide->user_id);
@@ -390,7 +411,7 @@ class RideLifecycleService
                 $ride,
                 null,
                 RideHistoryTypeEnum::STATUS,
-                RideStatusEnum::REQUESTED,
+                RideStatusEnum::PENDING,
                 RideStatusEnum::SYSTEM_CANCELLED,
                 'another_ride_accepted'
             );

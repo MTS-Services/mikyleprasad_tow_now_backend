@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('driver_id');
-            $table->string('status')->default(RideStatusEnum::REQUESTED->value);
+            $table->string('status')->default(RideStatusEnum::PENDING->value);
 
             $table->string('pickup_location');
             $table->string('dropoff_location');
@@ -27,7 +27,7 @@ return new class extends Migration
 
             $table->string('total_arrival_time')->nullable()->comment('in minutes');
             $table->string('total_ride_time')->nullable()->comment('in minutes');
-            
+
             $table->timestamp('expired_at')->nullable();
             $table->timestamps();
 

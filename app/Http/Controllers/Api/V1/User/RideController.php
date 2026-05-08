@@ -21,6 +21,28 @@ class RideController extends Controller
         private readonly RideQueryFilters $rideQueryFilters,
     ) {}
 
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['sometimes', 'array'],
+            'status.*' => ['string'],
+            'q' => ['sometimes', 'string'],
+            'from' => ['sometimes', 'date'],
+            'to' => ['sometimes', 'date'],
+            'sort' => ['sometimes', 'in:latest,oldest'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $rides = $this->rideLifecycleService->getRides($request->user(), $validated);
+
+        return sendResponse(
+            status: true,
+            message: 'Ride history fetched successfully.',
+            data: RideResource::collection($rides),
+            statusCode: HttpStatus::HTTP_OK
+        );
+    }
+
     public function store(StoreRideRequest $request): JsonResponse
     {
         $ride = $this->rideLifecycleService->createRequest($request->user(), $request->validated());
@@ -56,77 +78,7 @@ class RideController extends Controller
         );
     }
 
-    public function index(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'status' => ['sometimes', 'array'],
-            'status.*' => ['string'],
-            'q' => ['sometimes', 'string'],
-            'from' => ['sometimes', 'date'],
-            'to' => ['sometimes', 'date'],
-            'sort' => ['sometimes', 'in:latest,oldest'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-        ]);
-        $perPage = (int) ($validated['per_page'] ?? 15);
 
-        $query = Ride::query()
-            ->where('user_id', $request->user()->id)
-            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['driver', 'conversation'])
-            ->orderByDesc('created_at');
-
-        $rides = $this->rideQueryFilters
-            ->apply($query, $validated)
-            ->paginate($perPage)
-            ->withQueryString();
-
-        return sendResponse(
-            status: true,
-            message: 'Ride history fetched successfully.',
-            data: RideResource::collection($rides),
-            statusCode: HttpStatus::HTTP_OK
-        );
-    }
-
-    public function dashboard(Request $request): JsonResponse
-    {
-        $userId = $request->user()->id;
-
-        $summary = [
-            'active' => Ride::query()->where('user_id', $userId)->whereIn('status', [
-                RideStatusEnum::REQUESTED->value,
-                RideStatusEnum::ACCEPTED->value,
-                RideStatusEnum::ARRIVED->value,
-                RideStatusEnum::PICKED_UP->value,
-                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
-            ])->count(),
-            'completed' => Ride::query()->where('user_id', $userId)->where('status', RideStatusEnum::COMPLETED_USER->value)->count(),
-            'cancelled_or_expired' => Ride::query()->where('user_id', $userId)->whereIn('status', [
-                RideStatusEnum::CANCELLED_BY_DRIVER->value,
-                RideStatusEnum::CANCELLED_BY_USER->value,
-                RideStatusEnum::EXPIRED->value,
-            ])->count(),
-            'total' => Ride::query()->where('user_id', $userId)->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)->count(),
-        ];
-
-        $recent = Ride::query()
-            ->where('user_id', $userId)
-            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['driver', 'user', 'conversation'])
-            ->orderByDesc('created_at')
-            ->limit(6)
-            ->get();
-
-        return sendResponse(
-            true,
-            'User dashboard fetched successfully.',
-            [
-                'summary' => $summary,
-                'recent_rides' => RideResource::collection($recent),
-            ],
-            HttpStatus::HTTP_OK
-        );
-    }
 
     public function show(Request $request, Ride $ride): JsonResponse
     {

@@ -25,7 +25,7 @@ class RideLifecycleController extends Controller
 
     public function incoming(Request $request): JsonResponse
     {
-        $rides = $this->buildDriverListQuery($request, [RideStatusEnum::REQUESTED->value])
+        $rides = $this->buildDriverListQuery($request, [RideStatusEnum::PENDING->value])
             ->paginate((int) $request->integer('per_page', 15))
             ->withQueryString();
 
@@ -71,7 +71,7 @@ class RideLifecycleController extends Controller
         $driverId = $request->user()->id;
 
         $summary = [
-            'pending' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::REQUESTED->value)->count(),
+            'pending' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::PENDING->value)->count(),
             'active' => Ride::query()->where('driver_id', $driverId)->whereIn('status', $this->tabStatuses('active'))->count(),
             'completed' => Ride::query()->where('driver_id', $driverId)->whereIn('status', [
                 RideStatusEnum::COMPLETED_USER->value,
@@ -180,7 +180,7 @@ class RideLifecycleController extends Controller
                 RideStatusEnum::CANCELLED_BY_USER->value,
                 RideStatusEnum::EXPIRED->value,
             ],
-            default => [RideStatusEnum::REQUESTED->value],
+            default => [RideStatusEnum::PENDING->value],
         };
     }
 }

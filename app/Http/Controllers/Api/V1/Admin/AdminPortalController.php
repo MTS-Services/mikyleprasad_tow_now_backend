@@ -43,7 +43,7 @@ class AdminPortalController extends Controller
                     'total_customers' => User::query()->where('role', UserRole::USER->value)->count(),
                     'total_rides' => Ride::query()->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)->count(),
                     'active_rides' => Ride::query()->whereIn('status', [
-                        RideStatusEnum::REQUESTED->value,
+                        RideStatusEnum::PENDING->value,
                         RideStatusEnum::ACCEPTED->value,
                         RideStatusEnum::ARRIVED->value,
                         RideStatusEnum::PICKED_UP->value,
