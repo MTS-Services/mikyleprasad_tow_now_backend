@@ -23,6 +23,9 @@ Route::controller(OtpAuthController::class)->prefix('otp')->group(function () {
     Route::post('/register/verify', 'verifyRegistration')->middleware(['throttle:api-verification-otp-verify']);
 });
 
+
+
+
 Route::get('/languages', [LanguageController::class, 'index']);
 
 Route::get('/currencies', [CurrencyController::class, 'index']);
