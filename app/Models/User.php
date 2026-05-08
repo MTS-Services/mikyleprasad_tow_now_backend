@@ -35,6 +35,7 @@ use Laravel\Passport\HasApiTokens;
     'address',
     'bio',
     'is_suspended',
+    'is_featured',
     'email_verified_at',
     'phone_verified_at',
     'two_factor_secret',

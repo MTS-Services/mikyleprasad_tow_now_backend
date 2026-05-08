@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CurrencyController;
+use App\Http\Controllers\Api\V1\DriverSearchController;
 use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\OtpAuthController;
 use Illuminate\Support\Facades\Route;
@@ -28,3 +29,5 @@ Route::controller(OtpAuthController::class)->prefix('otp')->group(function () {
 Route::get('/languages', [LanguageController::class, 'index']);
 
 Route::get('/currencies', [CurrencyController::class, 'index']);
+
+Route::get('/drivers/find', [DriverSearchController::class, 'index']);
