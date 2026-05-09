@@ -6,6 +6,9 @@ use App\Enums\UserRole;
 use App\Models\User;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerServce
 {
@@ -35,5 +38,57 @@ class CustomerServce
             ->whereKey($id)
             ->where('role', UserRole::USER->value)
             ->first();
+    }
+
+    public function getCustomerProfile(): ?User
+    {
+        return User::query()
+            ->whereKey(auth()->id())
+            ->where('role', UserRole::USER->value)
+            ->first();
+    }
+
+    public function updateCustomerProfile(array $data): ?User
+    {
+        Validator::make($data, [
+            'name'   => ['sometimes', 'string', 'max:255'],
+            'phone'  => ['sometimes', 'string', 'max:20'],
+            'avatar' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ])->validate();
+
+        $customer = $this->getCustomerProfile();
+
+        if (! $customer) {
+            return null;
+        }
+
+        if (isset($data['avatar']) && $data['avatar'] instanceof UploadedFile) {
+            $this->deleteAvatarFile($customer->avatar);
+            $data['avatar'] = $this->storeAvatar($data['avatar'], $customer->id);
+        }
+
+        $customer->update($data);
+
+        return $customer->fresh();
+    }
+
+    private function storeAvatar(UploadedFile $file, int|string $userId): string
+    {
+        $path = $file->store("avatars/{$userId}", 'public');
+
+        return Storage::url($path);
+    }
+
+    private function deleteAvatarFile(?string $avatarUrl): void
+    {
+        if (! $avatarUrl) {
+            return;
+        }
+
+        $path = ltrim(str_replace('/storage', '', $avatarUrl), '/');
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

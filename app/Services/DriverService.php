@@ -11,6 +11,9 @@ use App\Models\Ride;
 use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class DriverService
 {
@@ -41,7 +44,7 @@ class DriverService
 
         return $query->paginate($perPage)->withQueryString();
     }
-    
+
     public function find(int $id): ?User
     {
         return User::query()
@@ -132,6 +135,63 @@ class DriverService
         $driver = User::query()->whereKey($driverId)->where('role', UserRole::DRIVER->value)->first();
         if ($driver) {
             $driver->update(['approval_status' => ApprovalStatus::REJECTED->value]);
+        }
+    }
+
+
+
+    public function getDriverProfile(): ?User
+    {
+        $userId = auth()->id();
+        return User::query()
+            ->whereKey($userId)
+            ->where('role', UserRole::DRIVER->value)
+            ->with('vehicle')
+            ->first();
+    }
+
+    public function updateDriverProfile(array $data): ?User
+    {
+        Validator::make($data, [
+            'name'    => ['sometimes', 'string', 'max:255'],
+            'phone'   => ['sometimes', 'string', 'max:20'],
+            'address' => ['sometimes', 'string', 'max:500'],
+            'avatar'  => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ])->validate();
+
+        $driver = $this->getDriverProfile();
+
+        if (! $driver) {
+            return null;
+        }
+
+        if (isset($data['avatar']) && $data['avatar'] instanceof UploadedFile) {
+            $this->deleteAvatarFile($driver->avatar);
+            $data['avatar'] = $this->storeAvatar($data['avatar'], $driver->id);
+        }
+
+        $driver->update($data);
+
+        return $driver->fresh();
+    }
+
+    private function storeAvatar(UploadedFile $file, int|string $userId): string
+    {
+        $path = $file->store("avatars/{$userId}", 'public');
+
+        return Storage::url($path);
+    }
+
+    private function deleteAvatarFile(?string $avatarUrl): void
+    {
+        if (! $avatarUrl) {
+            return;
+        }
+
+        $path = ltrim(str_replace('/storage', '', $avatarUrl), '/');
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
         }
     }
 }
