@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'username' => $this->username,
             'email' => $this->email,
+            'avatar' => $this->avatar,
             'phone' => $this->phone,
             'locale' => $this->locale,
             'timezone' => $this->timezone,
@@ -42,9 +43,21 @@ class UserResource extends JsonResource
             'address' => $this->address,
             'bio' => $this->bio,
             'is_suspended' => $this->is_suspended,
+            'is_featured' => $this->is_featured,
+            'approval_status' => $this->approval_status,
+            'status' => $this->status,
             'two_factor_enabled' => $this->hasEnabledTwoFactorAuthentication(),
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'phone_verified_at' => $this->phone_verified_at?->toIso8601String(),
+            'ride_statistics' => $this->when(
+                $this->role?->value === 'driver',
+                fn () => [
+                    'total_rides' => $this->total_rides,
+                    'completed_rides' => $this->completed_rides,
+                    'cancelled_rides' => $this->cancelled_rides,
+                    'active_rides' => $this->active_rides,
+                ]
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

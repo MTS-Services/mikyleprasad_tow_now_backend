@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('role', 32)->default(UserRole::USER->value);
             $table->string('phone')->nullable()->unique();
             $table->string('locale', 24)->default('en');
+            $table->string('avatar')->nullable();
 
             $table->string('address', 500)->nullable();
             $table->text('bio')->nullable();
