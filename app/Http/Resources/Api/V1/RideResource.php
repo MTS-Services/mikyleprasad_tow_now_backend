@@ -30,7 +30,7 @@ class RideResource extends JsonResource
             'eta_reason' => $this->eta_reason,
             'cancel_reason' => $this->cancel_reason,
             'cancelled_by' => $this->cancelled_by?->value ?? $this->cancelled_by,
-            'conversation_id' => $this->whenLoaded('conversation', fn () => $this->conversation?->id),
+            'conversation_id' => $this->whenLoaded('conversation', fn() => $this->conversation?->id),
             'expires_at' => $this->expired_at?->toIso8601String(),
             'accepted_at' => $this->accepted_at?->toIso8601String(),
             'arrived_at' => $this->arrived_at?->toIso8601String(),
@@ -40,20 +40,36 @@ class RideResource extends JsonResource
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'total_arrival_minutes' => $this->total_arrival_minutes,
             'total_ride_minutes' => $this->total_ride_minutes,
-            'timeline' => [
-                'eta_updates_count' => $this->whenLoaded(
-                    'histories',
-                    fn () => $this->histories->where('type', RideHistoryTypeEnum::ESTIMATED_TIME)->count()
-                ),
-            ],
+            // 'timeline' => [
+            //     'eta_updates_count' => $this->whenLoaded(
+            //         'histories',
+            //         fn() => $this->histories->where('type', RideHistoryTypeEnum::ESTIMATED_TIME)->count()
+            //     ),
+            // ],
+            'timeline' => $this->whenLoaded(
+                'histories',
+                fn($histories) => $histories->map(function ($history) {
+                    return [
+                        'id' => $history->id,
+                        'type' => $history->type?->value ?? $history->type ?? null,
+                        'from_status' => $history->from_status?->value ?? $history->from_status ?? null,
+                        'to_status' => $history->to_status?->value ?? $history->to_status ?? null,
+                        'time' => $history->time ?? null,
+                        'reason' => $history->reason ?? null,
+                        'data' => $history->data ?? null,
+                        'created_at' => $history->created_at?->toIso8601String() ?? $history->created_at,
+                        'updated_at' => $history->updated_at?->toIso8601String() ?? $history->updated_at,
+                    ];
+                }),
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'user' => $this->whenLoaded('user', fn () => [
+            'user' => $this->whenLoaded('user', fn() => [
                 'id' => $this->user?->id,
                 'name' => $this->user?->name,
                 'phone' => $this->user?->phone,
             ]),
-            'driver' => $this->whenLoaded('driver', fn () => [
+            'driver' => $this->whenLoaded('driver', fn() => [
                 'id' => $this->driver?->id,
                 'name' => $this->driver?->name,
                 'phone' => $this->driver?->phone,

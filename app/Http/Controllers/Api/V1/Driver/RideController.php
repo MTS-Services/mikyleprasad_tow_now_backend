@@ -18,31 +18,60 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-class RideLifecycleController extends Controller
+class RideController extends Controller
 {
     public function __construct(
         private readonly RideLifecycleService $rideLifecycleService,
         private readonly RideQueryFilters $rideQueryFilters,
     ) {}
 
+    public function stats(Request $request): JsonResponse
+    {
+        try {
+            $stats = $this->rideLifecycleService->getStats($request->user(), 'driver');
+            return sendResponse(
+                status: true,
+                message: 'Driver rides stats fetched successfully.',
+                data: $stats,
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
+    }
+
     public function incoming(Request $request): JsonResponse
     {
-        $rides = $this->buildDriverListQuery($request, [RideStatusEnum::PENDING->value])
-            ->paginate((int) $request->integer('per_page', 15))
-            ->withQueryString();
+        try {
+            $rides = $this->buildDriverListQuery($request, [RideStatusEnum::PENDING->value])
+                ->paginate((int) $request->integer('per_page', 15))
+                ->withQueryString();
 
-        return sendResponse(
-            true,
-            'Incoming rides fetched successfully.',
-            RideResource::collection($rides),
-            HttpStatus::HTTP_OK
-        );
+            return sendResponse(
+                true,
+                'Incoming rides fetched successfully.',
+                RideResource::collection($rides),
+                HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
     }
 
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'tab' => ['sometimes', 'in:pending,active,history'],
+            'tab' => ['sometimes', 'in:pending,active,completed,cancelled,expired,history'],
             'status' => ['sometimes', 'array'],
             'status.*' => ['string'],
             'q' => ['sometimes', 'string'],
@@ -52,57 +81,58 @@ class RideLifecycleController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $tab = (string) ($validated['tab'] ?? 'pending');
-        $statuses = $validated['status'] ?? $this->tabStatuses($tab);
-        $perPage = (int) ($validated['per_page'] ?? 15);
+        try {
+            $tab = (string) ($validated['tab'] ?? 'pending');
+            $statuses = $validated['status'] ?? $this->tabStatuses($tab);
+            $perPage = (int) ($validated['per_page'] ?? 15);
 
-        $rides = $this->buildDriverListQuery($request, $statuses, $validated)
-            ->paginate($perPage)
-            ->withQueryString();
+            $rides = $this->buildDriverListQuery($request, $statuses, $validated)
+                ->paginate($perPage)
+                ->withQueryString();
 
-        return sendResponse(
-            true,
-            'Driver rides fetched successfully.',
-            RideResource::collection($rides),
-            HttpStatus::HTTP_OK
-        );
+            return sendResponse(
+                status: true,
+                message: 'Driver rides fetched successfully.',
+                data: RideResource::collection($rides),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
     }
 
-    public function dashboard(Request $request): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $driverId = $request->user()->id;
+        try {
+            $ride = $this->rideLifecycleService->getRide([
+                'value' => $id,
+                'column' => 'id',
+                'customQuery' => [
+                    'driver_id' => $request->user()->id,
+                    'status' => ['operator' => '!=', 'value' => RideStatusEnum::SYSTEM_CANCELLED->value],
+                ],
+                'with' => ['user', 'driver', 'conversation', 'histories'],
+            ]);
 
-        $summary = [
-            'pending' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::PENDING->value)->count(),
-            'active' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::ACTIVE->value)->count(),
-            'completed' => Ride::query()->where('driver_id', $driverId)->whereIn('status', [
-                RideStatusEnum::COMPLETED_USER->value,
-            ])->count(),
-            'cancelled_or_expired' => Ride::query()->where('driver_id', $driverId)->whereIn('status', [
-                RideStatusEnum::CANCELLED_BY_DRIVER->value,
-                RideStatusEnum::CANCELLED_BY_USER->value,
-                RideStatusEnum::EXPIRED->value,
-            ])->count(),
-            'total' => Ride::query()->where('driver_id', $driverId)->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)->count(),
-        ];
-
-        $recent = Ride::query()
-            ->where('driver_id', $driverId)
-            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['user', 'driver', 'conversation'])
-            ->orderByDesc('created_at')
-            ->limit(5)
-            ->get();
-
-        return sendResponse(
-            true,
-            'Driver dashboard fetched successfully.',
-            [
-                'summary' => $summary,
-                'recent_rides' => RideResource::collection($recent),
-            ],
-            HttpStatus::HTTP_OK
-        );
+            return sendResponse(
+                status: true,
+                message: 'Ride fetched successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
     }
 
     public function accept(AcceptRideRequest $request, Ride $ride): JsonResponse
@@ -187,6 +217,16 @@ class RideLifecycleController extends Controller
         return match ($tab) {
             'active' => [
                 RideStatusEnum::ACTIVE->value,
+            ],
+            'completed' => [
+                RideStatusEnum::COMPLETED_USER->value,
+            ],
+            'cancelled' => [
+                RideStatusEnum::CANCELLED_BY_DRIVER->value,
+                RideStatusEnum::CANCELLED_BY_USER->value,
+            ],
+            'expired' => [
+                RideStatusEnum::EXPIRED->value,
             ],
             'history' => [
                 RideStatusEnum::COMPLETED_USER->value,

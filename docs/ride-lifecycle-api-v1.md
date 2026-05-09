@@ -75,7 +75,7 @@ Complete ride by user (`active` only).
 
 ## Driver Endpoints (`/api/v1/driver`)
 
-### GET `/dashboard`
+### GET `/stats`
 Driver ride summary.
 
 ### GET `/rides`
@@ -131,7 +131,7 @@ Complete ride by driver (`active` only).
 
 Admin ride endpoints remain read-only:
 
-- GET `/dashboard`
+- GET `/stats`
 - GET `/rides`
 - GET `/rides/{ride}`
 - GET `/drivers`

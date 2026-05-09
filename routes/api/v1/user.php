@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\V1\User\DashboardController;
 use App\Http\Controllers\Api\V1\User\ProductController;
 use App\Http\Controllers\Api\V1\User\RideController;
 use Illuminate\Http\Request;
@@ -14,13 +13,9 @@ Route::get('/ping', function (Request $request) {
 });
 
 Route::apiResource('products', ProductController::class);
-Route::get('dashboard', [DashboardController::class, 'stats']);
-
-Route::controller(DashboardController::class)->group(function () {
-    Route::get('/stats', 'stats');
-});
 
 Route::prefix('rides')->controller(RideController::class)->group(function () {
+    Route::get('/stats', 'stats');
     Route::get('/', 'index');
     Route::post('/', 'store');
     Route::get('/active', 'active');

@@ -20,6 +20,27 @@ class RideController extends Controller
         private readonly RideLifecycleService $rideLifecycleService
     ) {}
 
+    public function stats(Request $request): JsonResponse
+    {
+        try {
+            $stats = $this->rideLifecycleService->getStats($request->user());
+
+            return sendResponse(
+                status: true,
+                message: 'Ride stats fetched successfully.',
+                data: $stats,
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
+    }
+
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -33,14 +54,32 @@ class RideController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $rides = $this->rideLifecycleService->getRides($request->user(), $validated);
+        try {
 
-        return sendResponse(
-            status: true,
-            message: 'Ride history fetched successfully.',
-            data: RideResource::collection($rides),
-            statusCode: HttpStatus::HTTP_OK
-        );
+            // $rides = $this->rideLifecycleService->getRides($request->user(), $validated);
+
+            $rides = $this->rideLifecycleService->getRides(params: [
+                'filters' => $validated,
+                'customQuery' => [
+                    'user_id' => $request->user()->id,
+                    'status' => ['operator' => '!=', 'value' => RideStatusEnum::SYSTEM_CANCELLED->value],
+                ],
+            ]);
+
+            return sendResponse(
+                status: true,
+                message: 'Ride history fetched successfully.',
+                data: RideResource::collection($rides),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
     }
 
     public function store(StoreRideRequest $request): JsonResponse
@@ -80,20 +119,33 @@ class RideController extends Controller
         );
     }
 
-    public function show(Request $request, Ride $ride): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        if ($ride->user_id !== $request->user()->id || $ride->status === RideStatusEnum::SYSTEM_CANCELLED) {
-            return sendResponse(false, 'Ride not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
+        try {
+            $ride = $this->rideLifecycleService->getRide([
+                'value' => $id,
+                'column' => 'id',
+                'filters' => ['user_id' => $request->user()->id],
+                'customQuery' => [
+                    'status' => ['operator' => '!=', 'value' => RideStatusEnum::SYSTEM_CANCELLED->value],
+                ],
+                'with' => ['driver', 'user', 'conversation', 'histories'],
+            ]);
+
+            return sendResponse(
+                status: true,
+                message: 'Ride details fetched successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
         }
-
-        $ride->load(['driver', 'user', 'conversation', 'histories']);
-
-        return sendResponse(
-            status: true,
-            message: 'Ride details fetched successfully.',
-            data: new RideResource($ride),
-            statusCode: HttpStatus::HTTP_OK
-        );
     }
 
     public function cancel(CancelRideRequest $request, Ride $ride): JsonResponse
