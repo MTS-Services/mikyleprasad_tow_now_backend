@@ -9,7 +9,7 @@ use App\Http\Requests\Api\V1\FindDriversRequest;
 use App\Http\Resources\Api\V1\DriverCardResource;
 use App\Enums\ApprovalStatus;
 use App\Models\User;
-use App\Services\DriverSearchService;
+use App\Services\DriverService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
@@ -17,12 +17,12 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 class DriverSearchController extends Controller
 {
     public function __construct(
-        private readonly DriverSearchService $driverSearchService
+        private readonly DriverService $driverService
     ) {}
 
     public function index(FindDriversRequest $request): JsonResponse
     {
-        $paginator = $this->driverSearchService->paginate($request->validated());
+        $paginator = $this->driverService->paginate($request->validated());
 
         return sendResponse(
             status: true,

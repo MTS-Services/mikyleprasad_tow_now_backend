@@ -11,7 +11,6 @@ use App\Models\Ride;
 use App\Services\RideLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -68,14 +67,8 @@ class RideController extends Controller
     {
         $ride = Ride::query()
             ->where('user_id', $request->user()->id)
-            ->whereNotIn('status', [
-                RideStatusEnum::SYSTEM_CANCELLED->value,
-                RideStatusEnum::COMPLETED_USER->value,
-                RideStatusEnum::CANCELLED_BY_USER->value,
-                RideStatusEnum::CANCELLED_BY_DRIVER->value,
-                RideStatusEnum::EXPIRED->value,
-            ])
-            ->with(['driver', 'user', 'conversation'])
+            ->where('status', RideStatusEnum::ACTIVE->value)
+            ->with(['driver', 'user', 'conversation', 'histories'])
             ->latest('id')
             ->first();
 
@@ -93,7 +86,7 @@ class RideController extends Controller
             return sendResponse(false, 'Ride not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
         }
 
-        $ride->load(['driver', 'user', 'conversation']);
+        $ride->load(['driver', 'user', 'conversation', 'histories']);
 
         return sendResponse(
             status: true,
@@ -105,55 +98,36 @@ class RideController extends Controller
 
     public function cancel(CancelRideRequest $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->cancelByUser($ride->load(['user', 'driver', 'conversation']), $request->user(), $request->validated('reason'));
+        try {
+            $ride = $this->rideLifecycleService->cancelByUser(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user(),
+                $request->validated('reason')
+            );
 
-        return sendResponse(
-            status: true,
-            message: 'Ride cancelled successfully.',
-            data: new RideResource($ride),
-            statusCode: HttpStatus::HTTP_OK
-        );
+            return sendResponse(
+                status: true,
+                message: 'Ride cancelled successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode()
+            );
+        }
     }
 
     public function complete(Request $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->completeByUser($ride->load(['user', 'driver', 'conversation']), $request->user());
-
-        return sendResponse(
-            status: true,
-            message: 'Ride completed successfully.',
-            data: new RideResource($ride),
-            statusCode: HttpStatus::HTTP_OK
-        );
-    }
-
-    public function approveCompletion(Request $request, Ride $ride): JsonResponse
-    {
-        $ride = $this->rideLifecycleService->completeByUser($ride->load(['user', 'driver', 'conversation']), $request->user());
-
-        return sendResponse(
-            status: true,
-            message: 'Ride completion approved.',
-            data: new RideResource($ride),
-            statusCode: HttpStatus::HTTP_OK
-        );
-    }
-
-    public function updateStatus(Request $request, string $rideId): JsonResponse
-    {
-        $validated = $request->validate([
-            'status' => ['required', Rule::enum(RideStatusEnum::class)],
-        ]);
-
         try {
-            $ride = $this->rideLifecycleService->getRide($rideId, 'id');
-            $user = $request->user();
-            $status = RideStatusEnum::from($validated['status']);
-            $ride = $this->rideLifecycleService->updateStatus($ride, $user, $status);
+            $ride = $this->rideLifecycleService->completeByUser($ride->load(['user', 'driver', 'conversation', 'histories']), $request->user());
 
             return sendResponse(
                 status: true,
-                message: 'Ride status updated successfully.',
+                message: 'Ride completed successfully.',
                 data: new RideResource($ride),
                 statusCode: HttpStatus::HTTP_OK
             );

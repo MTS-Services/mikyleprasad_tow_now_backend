@@ -3,11 +3,14 @@
 use App\Http\Controllers\Api\V1\Driver\RideLifecycleController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('rides/incoming', [RideLifecycleController::class, 'incoming']);
-Route::get('dashboard', [RideLifecycleController::class, 'dashboard']);
-Route::get('rides', [RideLifecycleController::class, 'index']);
-Route::post('rides/{ride}/accept', [RideLifecycleController::class, 'accept']);
-Route::post('rides/{ride}/eta', [RideLifecycleController::class, 'updateEta']);
-Route::post('rides/{ride}/arrived', [RideLifecycleController::class, 'arrived']);
-Route::post('rides/{ride}/picked-up', [RideLifecycleController::class, 'pickedUp']);
-Route::post('rides/{ride}/complete-request', [RideLifecycleController::class, 'completeRequest']);
+Route::controller(RideLifecycleController::class)->group(function () {
+    Route::get('dashboard', 'dashboard');
+    Route::prefix('rides')->group(function () {
+        Route::get('/', 'index');
+        Route::get('/incoming', 'incoming');
+        Route::post('/{ride}/accept', 'accept');
+        Route::post('/{ride}/eta', 'updateEta');
+        Route::post('/{ride}/cancel', 'cancel');
+        Route::post('/{ride}/complete-request', 'completeRequest');
+    });
+});

@@ -45,9 +45,6 @@ class AdminPortalController extends Controller
                     'active_rides' => Ride::query()->whereIn('status', [
                         RideStatusEnum::PENDING->value,
                         RideStatusEnum::ACTIVE->value,
-                        RideStatusEnum::ARRIVED->value,
-                        RideStatusEnum::PICKED_UP->value,
-                        RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
                     ])->count(),
                 ],
                 'recent_rides' => RideResource::collection($recentRides),

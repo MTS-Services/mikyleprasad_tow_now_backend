@@ -32,16 +32,12 @@ class RideLifecycleService
     {
         return [
             'pending' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::PENDING->value)->count(),
-            'active' => Ride::query()->where('user_id', $user->id)->whereIn('status', [
-                RideStatusEnum::ACTIVE->value,
-                RideStatusEnum::ARRIVED->value,
-                RideStatusEnum::PICKED_UP->value,
-                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
-            ])->count(),
+            'active' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::ACTIVE->value)->count(),
             'completed' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::COMPLETED_USER->value)->count(),
             'cancelled' => Ride::query()->where('user_id', $user->id)->whereIn('status', [
                 RideStatusEnum::CANCELLED_BY_DRIVER->value,
                 RideStatusEnum::CANCELLED_BY_USER->value,
+                RideStatusEnum::SYSTEM_CANCELLED->value,
                 RideStatusEnum::EXPIRED->value,
             ])->count(),
             'expired' => Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::EXPIRED->value)->count(),
@@ -66,7 +62,7 @@ class RideLifecycleService
         $query = Ride::query()
             ->where('user_id', $user->id)
             ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['driver', 'conversation']);
+            ->with(['driver', 'conversation', 'histories']);
 
         $rides = $this->rideQueryFilters
             ->apply($query, $validated)
@@ -85,33 +81,50 @@ class RideLifecycleService
             throw new HttpException(403, __('auth.unauthorized'));
         }
 
-        // check if user has an active ride request
-        $activeRide = Ride::query()->where('user_id', $user->id)->where('status', RideStatusEnum::ACTIVE->value)->first();
-        if ($activeRide) {
-            throw new HttpException(422, 'You already have an active ride request.');
-        }
+        return DB::transaction(function () use ($user, $data): Ride {
+            $driver = User::query()
+                ->whereKey($data['driver_id'])
+                ->where('role', UserRole::DRIVER->value)
+                ->where('approval_status', ApprovalStatus::APPROVED->value)
+                ->where('is_suspended', false)
+                ->lockForUpdate()
+                ->first();
 
-        // Check if any pending ride request for the selected driver
-        $pendingRideRequest = Ride::query()
-            ->where('driver_id', $data['driver_id'])
-            ->where('status', RideStatusEnum::PENDING->value)
-            ->first();
-        if ($pendingRideRequest) {
-            throw new HttpException(422, 'You already have a pending ride request for the selected driver.');
-        }
+            if (! $driver) {
+                throw new HttpException(422, 'Selected driver is invalid.');
+            }
 
-        $driver = User::query()
-            ->whereKey($data['driver_id'])
-            ->where('role', UserRole::DRIVER->value)
-            ->where('approval_status', ApprovalStatus::APPROVED->value)
-            ->where('is_suspended', false)
-            ->first();
+            $userHasActiveRide = Ride::query()
+                ->where('user_id', $user->id)
+                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->lockForUpdate()
+                ->exists();
 
-        if (! $driver) {
-            throw new HttpException(422, 'Selected driver is invalid.');
-        }
+            if ($userHasActiveRide) {
+                throw new HttpException(422, 'You already have an active ride.');
+            }
 
-        return DB::transaction(function () use ($user, $driver, $data): Ride {
+            $driverHasActiveRide = Ride::query()
+                ->where('driver_id', $driver->id)
+                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($driverHasActiveRide) {
+                throw new HttpException(422, 'Selected driver is currently unavailable.');
+            }
+
+            $hasPendingForSameDriver = Ride::query()
+                ->where('user_id', $user->id)
+                ->where('driver_id', $driver->id)
+                ->where('status', RideStatusEnum::PENDING->value)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($hasPendingForSameDriver) {
+                throw new HttpException(422, 'You already have a pending request for this driver.');
+            }
+
             $ride = Ride::query()->create([
                 'user_id' => $user->id,
                 'driver_id' => $driver->id,
@@ -146,52 +159,25 @@ class RideLifecycleService
                 sender: $user
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
-    }
-
-    public function updateStatus(Ride $ride, User $user, RideStatusEnum $status): Ride
-    {
-
-        // First check is the ride is owned by the user or the driver
-        if (! $ride->user_id == $user->id || ! $ride->driver_id == $user->id) {
-            throw new HttpException(403, __('auth.unauthorized'));
-        }
-        // if status complete or cancelled, throw an error
-        if ($status->isTerminal()) {
-            throw new HttpException(422, 'Ride is already completed or cancelled.');
-        }
-
-        // if the status is completed, we need to check if the user has already completed the ride
-        if ($status->isCompleted()) {
-            throw new HttpException(422, 'Ride is already completed.');
-        }
-        if ($status->isCancelled()) {
-            throw new HttpException(422, 'Ride is already cancelled.');
-        }
-        $ride->lockForUpdate();
-        $from = $ride->status;
-
-        // update the ride status
-        $ride->forceFill([
-            'status' => $status,
-        ])->save();
-
-        $this->logRideHistory($ride, $user, RideHistoryTypeEnum::STATUS, $from, $status, null, null);
-        $this->logConversationActivity($ride->conversation, $user->id, 'ride.status_updated', [
-            'status' => $status,
-        ]);
-
-        return $ride->load(['user', 'driver', 'conversation']);
     }
 
     public function cancelByUser(Ride $ride, User $user, ?string $reason = null): Ride
     {
-        $this->assertParticipant($ride, $user);
-        $this->assertNotSystemCancelled($ride);
-        $this->assertTransitionable($ride);
+        if ($ride->user_id !== $user->id) {
+            throw new HttpException(403, __('auth.unauthorized'));
+        }
 
         return DB::transaction(function () use ($ride, $user, $reason): Ride {
+            $ride = Ride::query()
+                ->whereKey($ride->id)
+                ->with(['user', 'driver', 'conversation', 'histories'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertCancelableStatus($ride);
+
             $from = $ride->status;
             $ride->forceFill([
                 'status' => RideStatusEnum::CANCELLED_BY_USER->value,
@@ -212,21 +198,87 @@ class RideLifecycleService
                 sender: $user
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
+        });
+    }
+
+    public function cancelByDriver(Ride $ride, User $driver, ?string $reason = null): Ride
+    {
+        if ($ride->driver_id !== $driver->id) {
+            throw new HttpException(403, __('auth.unauthorized'));
+        }
+
+        return DB::transaction(function () use ($ride, $driver, $reason): Ride {
+            $ride = Ride::query()
+                ->whereKey($ride->id)
+                ->with(['user', 'driver', 'conversation', 'histories'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertCancelableStatus($ride);
+
+            $from = $ride->status;
+            $ride->forceFill([
+                'status' => RideStatusEnum::CANCELLED_BY_DRIVER->value,
+                'cancel_reason' => $reason,
+                'cancelled_by' => RideCancelledByEnum::DRIVER->value,
+                'cancelled_at' => now(),
+            ])->save();
+
+            $this->logRideHistory($ride, $driver, RideHistoryTypeEnum::STATUS, $from, RideStatusEnum::CANCELLED_BY_DRIVER, $reason);
+            $this->logConversationActivity($ride->conversation, $driver->id, 'ride.cancelled_by_driver', ['reason' => $reason]);
+
+            $this->userNotificationService->notify(
+                recipient: $ride->user,
+                type: 'ride.cancelled_by_driver',
+                title: 'Ride cancelled',
+                body: "{$ride->driver->name} cancelled the ride.",
+                data: ['ride_id' => $ride->id],
+                sender: $driver
+            );
+
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
 
     public function acceptByDriver(Ride $ride, User $driver, int $etaMinutes): Ride
     {
-        if ($ride->driver_id !== $driver->id) {
-            throw new HttpException(403, __('auth.unauthorized'));
-        }
-        if ($ride->status !== RideStatusEnum::PENDING) {
-            throw new HttpException(422, 'Only pending rides can be accepted.');
-        }
-        $this->assertNotSystemCancelled($ride);
-
         return DB::transaction(function () use ($ride, $driver, $etaMinutes): Ride {
+            $ride = Ride::query()
+                ->whereKey($ride->id)
+                ->with(['user', 'driver', 'conversation', 'histories'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($ride->driver_id !== $driver->id) {
+                throw new HttpException(403, __('auth.unauthorized'));
+            }
+            if ($ride->status !== RideStatusEnum::PENDING) {
+                throw new HttpException(422, 'Only pending rides can be accepted.');
+            }
+
+            $driverHasAnotherActiveRide = Ride::query()
+                ->where('driver_id', $driver->id)
+                ->whereKeyNot($ride->id)
+                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($driverHasAnotherActiveRide) {
+                throw new HttpException(422, 'You already have an active ride.');
+            }
+
+            $userHasAnotherActiveRide = Ride::query()
+                ->where('user_id', $ride->user_id)
+                ->whereKeyNot($ride->id)
+                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($userHasAnotherActiveRide) {
+                throw new HttpException(422, 'This user already has an active ride.');
+            }
+
             $from = $ride->status;
             $ride->forceFill([
                 'status' => RideStatusEnum::ACTIVE->value,
@@ -254,7 +306,7 @@ class RideLifecycleService
                 sender: $driver
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
 
@@ -263,10 +315,12 @@ class RideLifecycleService
         if ($ride->driver_id !== $driver->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        if (! in_array($ride->status, [RideStatusEnum::ACTIVE, RideStatusEnum::ARRIVED], true)) {
-            throw new HttpException(422, 'ETA can only be updated for accepted/arrived rides.');
+        if ($ride->status !== RideStatusEnum::ACTIVE) {
+            throw new HttpException(422, 'ETA can only be updated for active rides.');
         }
-        $this->assertNotSystemCancelled($ride);
+        if ($reason === '') {
+            throw new HttpException(422, 'Reason is required.');
+        }
 
         return DB::transaction(function () use ($ride, $driver, $etaMinutes, $reason): Ride {
             $ride->forceFill([
@@ -293,58 +347,7 @@ class RideLifecycleService
                 sender: $driver
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
-        });
-    }
-
-    public function markArrived(Ride $ride, User $actor): Ride
-    {
-        $this->assertParticipant($ride, $actor);
-        $this->assertNotSystemCancelled($ride);
-
-        if (! in_array($ride->status, [RideStatusEnum::ACTIVE, RideStatusEnum::PICKED_UP], true)) {
-            throw new HttpException(422, 'Ride is not in a state that can be marked arrived.');
-        }
-
-        return DB::transaction(function () use ($ride, $actor): Ride {
-            $from = $ride->status;
-            $arrivalMinutes = $ride->accepted_at ? max(0, now()->diffInMinutes($ride->accepted_at)) : null;
-
-            $ride->forceFill([
-                'status' => RideStatusEnum::ARRIVED->value,
-                'arrived_at' => now(),
-                'total_arrival_minutes' => $arrivalMinutes,
-            ])->save();
-
-            $this->logRideHistory($ride, $actor, RideHistoryTypeEnum::STATUS, $from, RideStatusEnum::ARRIVED);
-            $this->logConversationActivity($ride->conversation, $actor->id, 'ride.arrived', [
-                'total_arrival_minutes' => $arrivalMinutes,
-            ]);
-
-            return $ride->load(['user', 'driver', 'conversation']);
-        });
-    }
-
-    public function markPickedUp(Ride $ride, User $actor): Ride
-    {
-        $this->assertParticipant($ride, $actor);
-        $this->assertNotSystemCancelled($ride);
-
-        if ($ride->status !== RideStatusEnum::ARRIVED) {
-            throw new HttpException(422, 'Ride must be arrived before pick-up.');
-        }
-
-        return DB::transaction(function () use ($ride, $actor): Ride {
-            $from = $ride->status;
-            $ride->forceFill([
-                'status' => RideStatusEnum::PICKED_UP->value,
-                'picked_up_at' => now(),
-            ])->save();
-
-            $this->logRideHistory($ride, $actor, RideHistoryTypeEnum::STATUS, $from, RideStatusEnum::PICKED_UP);
-            $this->logConversationActivity($ride->conversation, $actor->id, 'ride.picked_up');
-
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
 
@@ -353,14 +356,13 @@ class RideLifecycleService
         if ($ride->user_id !== $user->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        $this->assertNotSystemCancelled($ride);
-        if (! in_array($ride->status, [RideStatusEnum::PICKED_UP, RideStatusEnum::COMPLETED_DRIVER_PENDING_USER], true)) {
+        if ($ride->status !== RideStatusEnum::ACTIVE) {
             throw new HttpException(422, 'Ride is not ready to complete.');
         }
 
         return DB::transaction(function () use ($ride, $user): Ride {
             $from = $ride->status;
-            $rideMinutes = $ride->picked_up_at ? max(0, now()->diffInMinutes($ride->picked_up_at)) : null;
+            $rideMinutes = $ride->accepted_at ? max(0, now()->diffInMinutes($ride->accepted_at)) : null;
 
             $ride->forceFill([
                 'status' => RideStatusEnum::COMPLETED_USER->value,
@@ -382,40 +384,44 @@ class RideLifecycleService
                 sender: $user
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
 
-    public function requestCompletionByDriver(Ride $ride, User $driver): Ride
+    public function completeByDriver(Ride $ride, User $driver): Ride
     {
         if ($ride->driver_id !== $driver->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        $this->assertNotSystemCancelled($ride);
-        if ($ride->status !== RideStatusEnum::PICKED_UP) {
-            throw new HttpException(422, 'Only picked-up rides can request completion.');
+        if ($ride->status !== RideStatusEnum::ACTIVE) {
+            throw new HttpException(422, 'Only active rides can be completed.');
         }
 
         return DB::transaction(function () use ($ride, $driver): Ride {
             $from = $ride->status;
+            $rideMinutes = $ride->accepted_at ? max(0, now()->diffInMinutes($ride->accepted_at)) : null;
+
             $ride->forceFill([
-                'status' => RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
-                'completion_requested_at' => now(),
+                'status' => RideStatusEnum::COMPLETED_USER->value,
+                'completed_at' => now(),
+                'total_ride_minutes' => $rideMinutes,
             ])->save();
 
-            $this->logRideHistory($ride, $driver, RideHistoryTypeEnum::STATUS, $from, RideStatusEnum::COMPLETED_DRIVER_PENDING_USER);
-            $this->logConversationActivity($ride->conversation, $driver->id, 'ride.completion_requested');
+            $this->logRideHistory($ride, $driver, RideHistoryTypeEnum::COMPLETE, $from, RideStatusEnum::COMPLETED_USER, null, $rideMinutes);
+            $this->logConversationActivity($ride->conversation, $driver->id, 'ride.completed_by_driver', [
+                'total_ride_minutes' => $rideMinutes,
+            ]);
 
             $this->userNotificationService->notify(
                 recipient: $ride->user,
-                type: 'ride.completion_requested',
-                title: 'Completion confirmation required',
-                body: "{$driver->name} requested completion confirmation for your ride.",
+                type: 'ride.completed',
+                title: 'Ride completed',
+                body: "{$driver->name} marked the ride as completed.",
                 data: ['ride_id' => $ride->id],
                 sender: $driver
             );
 
-            return $ride->load(['user', 'driver', 'conversation']);
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
 
@@ -425,7 +431,7 @@ class RideLifecycleService
             ->where('status', RideStatusEnum::PENDING->value)
             ->whereNotNull('expired_at')
             ->where('expired_at', '<=', now())
-            ->with(['user', 'driver', 'conversation'])
+            ->with(['user', 'driver', 'conversation', 'histories'])
             ->get();
 
         foreach ($rides as $ride) {
@@ -480,24 +486,14 @@ class RideLifecycleService
         }
     }
 
-    private function assertParticipant(Ride $ride, User $user): void
-    {
-        if ($ride->user_id !== $user->id && $ride->driver_id !== $user->id) {
-            throw new HttpException(403, __('auth.unauthorized'));
-        }
-    }
-
-    private function assertNotSystemCancelled(Ride $ride): void
-    {
-        if ($ride->status === RideStatusEnum::SYSTEM_CANCELLED) {
-            throw new HttpException(404, 'Ride not found.');
-        }
-    }
-
-    private function assertTransitionable(Ride $ride): void
+    private function assertCancelableStatus(Ride $ride): void
     {
         if ($ride->status->isTerminal()) {
             throw new HttpException(422, 'Ride is already finalized.');
+        }
+
+        if (! in_array($ride->status, [RideStatusEnum::PENDING, RideStatusEnum::ACTIVE], true)) {
+            throw new HttpException(422, 'Ride cannot be cancelled in its current state.');
         }
     }
 

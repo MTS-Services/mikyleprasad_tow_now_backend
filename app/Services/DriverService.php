@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
-class DriverSearchService
+class DriverService
 {
     public function __construct(
         private readonly DriverQueryFilters $driverQueryFilters

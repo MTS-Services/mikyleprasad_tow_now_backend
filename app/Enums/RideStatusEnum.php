@@ -45,7 +45,7 @@ enum RideStatusEnum: string
 
     public function isCompleted(): bool
     {
-        return $this === self::COMPLETED_USER || $this === self::COMPLETED_DRIVER_PENDING_USER;
+        return $this === self::COMPLETED_USER;
     }
 
     public function isCancelled(): bool

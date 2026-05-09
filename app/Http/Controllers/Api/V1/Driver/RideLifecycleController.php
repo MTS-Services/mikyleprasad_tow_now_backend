@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1\Driver;
 use App\Enums\RideStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Ride\AcceptRideRequest;
+use App\Http\Requests\Api\V1\Ride\CancelRideRequest;
 use App\Http\Requests\Api\V1\Ride\UpdateRideEtaRequest;
 use App\Http\Resources\Api\V1\RideResource;
 use App\Models\Ride;
@@ -15,6 +16,7 @@ use App\Support\Filters\RideQueryFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class RideLifecycleController extends Controller
 {
@@ -72,10 +74,9 @@ class RideLifecycleController extends Controller
 
         $summary = [
             'pending' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::PENDING->value)->count(),
-            'active' => Ride::query()->where('driver_id', $driverId)->whereIn('status', $this->tabStatuses('active'))->count(),
+            'active' => Ride::query()->where('driver_id', $driverId)->where('status', RideStatusEnum::ACTIVE->value)->count(),
             'completed' => Ride::query()->where('driver_id', $driverId)->whereIn('status', [
                 RideStatusEnum::COMPLETED_USER->value,
-                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
             ])->count(),
             'cancelled_or_expired' => Ride::query()->where('driver_id', $driverId)->whereIn('status', [
                 RideStatusEnum::CANCELLED_BY_DRIVER->value,
@@ -106,46 +107,62 @@ class RideLifecycleController extends Controller
 
     public function accept(AcceptRideRequest $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->acceptByDriver(
-            $ride->load(['user', 'driver', 'conversation']),
-            $request->user(),
-            (int) $request->validated('eta_minutes')
-        );
+        try {
+            $ride = $this->rideLifecycleService->acceptByDriver(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user(),
+                (int) $request->validated('eta_minutes')
+            );
 
-        return sendResponse(true, 'Ride accepted successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+            return sendResponse(true, 'Ride accepted successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+        } catch (HttpException $e) {
+            return sendResponse(false, $e->getMessage(), statusCode: $e->getStatusCode());
+        }
     }
 
     public function updateEta(UpdateRideEtaRequest $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->updateEta(
-            $ride->load(['user', 'driver', 'conversation']),
-            $request->user(),
-            (int) $request->validated('eta_minutes'),
-            (string) $request->validated('reason')
-        );
+        try {
+            $ride = $this->rideLifecycleService->updateEta(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user(),
+                (int) $request->validated('eta_minutes'),
+                (string) $request->validated('reason')
+            );
 
-        return sendResponse(true, 'Ride ETA updated successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+            return sendResponse(true, 'Ride ETA updated successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+        } catch (HttpException $e) {
+            return sendResponse(false, $e->getMessage(), statusCode: $e->getStatusCode());
+        }
     }
 
-    public function arrived(Request $request, Ride $ride): JsonResponse
+    public function cancel(CancelRideRequest $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->markArrived($ride->load(['user', 'driver', 'conversation']), $request->user());
+        try {
+            $ride = $this->rideLifecycleService->cancelByDriver(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user(),
+                $request->validated('reason')
+            );
 
-        return sendResponse(true, 'Ride marked as arrived.', new RideResource($ride), HttpStatus::HTTP_OK);
-    }
-
-    public function pickedUp(Request $request, Ride $ride): JsonResponse
-    {
-        $ride = $this->rideLifecycleService->markPickedUp($ride->load(['user', 'driver', 'conversation']), $request->user());
-
-        return sendResponse(true, 'Ride marked as picked up.', new RideResource($ride), HttpStatus::HTTP_OK);
+            return sendResponse(true, 'Ride cancelled successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+        } catch (HttpException $e) {
+            return sendResponse(false, $e->getMessage(), statusCode: $e->getStatusCode());
+        }
     }
 
     public function completeRequest(Request $request, Ride $ride): JsonResponse
     {
-        $ride = $this->rideLifecycleService->requestCompletionByDriver($ride->load(['user', 'driver', 'conversation']), $request->user());
+        try {
+            $ride = $this->rideLifecycleService->completeByDriver(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user()
+            );
 
-        return sendResponse(true, 'Ride completion approval requested.', new RideResource($ride), HttpStatus::HTTP_OK);
+            return sendResponse(true, 'Ride completed successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
+        } catch (HttpException $e) {
+            return sendResponse(false, $e->getMessage(), statusCode: $e->getStatusCode());
+        }
     }
 
     /**
@@ -170,12 +187,9 @@ class RideLifecycleController extends Controller
         return match ($tab) {
             'active' => [
                 RideStatusEnum::ACTIVE->value,
-                RideStatusEnum::ARRIVED->value,
-                RideStatusEnum::PICKED_UP->value,
             ],
             'history' => [
                 RideStatusEnum::COMPLETED_USER->value,
-                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
                 RideStatusEnum::CANCELLED_BY_DRIVER->value,
                 RideStatusEnum::CANCELLED_BY_USER->value,
                 RideStatusEnum::EXPIRED->value,

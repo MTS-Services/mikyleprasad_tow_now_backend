@@ -14,17 +14,17 @@ Route::get('/ping', function (Request $request) {
 });
 
 Route::apiResource('products', ProductController::class);
-Route::get('dashboard', [RideController::class, 'dashboard']);
-Route::get('rides/active', [RideController::class, 'active']);
-Route::post('rides/{ride}/cancel', [RideController::class, 'cancel']);
-Route::post('rides/{ride}/complete', [RideController::class, 'complete']);
-Route::post('rides/{ride}/complete/approve', [RideController::class, 'approveCompletion']);
+Route::get('dashboard', [DashboardController::class, 'stats']);
 
 Route::controller(DashboardController::class)->group(function () {
     Route::get('/stats', 'stats');
 });
 
-Route::controller(RideController::class)->prefix('rides')->group(function () {
-    Route::post('{driverId}/status', 'updateStatus');
+Route::prefix('rides')->controller(RideController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::post('/', 'store');
+    Route::get('/active', 'active');
+    Route::get('/{ride}', 'show');
+    Route::post('/{ride}/cancel', 'cancel');
+    Route::post('/{ride}/complete', 'complete');
 });
-Route::apiResource('rides', RideController::class)->only(['store', 'index', 'show']);

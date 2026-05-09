@@ -157,7 +157,7 @@ test('rejected driver cannot access driver routes', function (): void {
 
     $this->getJson('/api/v1/driver/dashboard')
         ->assertForbidden()
-        ->assertJsonPath('message', __('auth.driver.not_approved'));
+        ->assertJsonPath('message', __('auth.driver.rejected'));
 });
 
 test('currencies index is public', function (): void {

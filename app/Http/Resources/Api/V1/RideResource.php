@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\RideHistoryTypeEnum;
 use App\Models\Ride;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,6 +40,12 @@ class RideResource extends JsonResource
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'total_arrival_minutes' => $this->total_arrival_minutes,
             'total_ride_minutes' => $this->total_ride_minutes,
+            'timeline' => [
+                'eta_updates_count' => $this->whenLoaded(
+                    'histories',
+                    fn () => $this->histories->where('type', RideHistoryTypeEnum::ESTIMATED_TIME)->count()
+                ),
+            ],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'user' => $this->whenLoaded('user', fn () => [
