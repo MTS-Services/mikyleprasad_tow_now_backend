@@ -131,7 +131,7 @@ Complete ride by driver (`active` only).
 
 Admin ride endpoints remain read-only:
 
-- GET `/dashboard`
+- GET `/stats`
 - GET `/rides`
 - GET `/rides/{ride}`
 - GET `/drivers`

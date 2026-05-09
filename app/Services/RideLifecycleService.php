@@ -28,12 +28,16 @@ class RideLifecycleService
         private readonly RideQueryFilters $rideQueryFilters,
     ) {}
 
-    public function getStats(User $user, string $type = 'user')
+    public function getStats(?User $user = null, string $type = 'user')
     {
-        $column = ($type === 'driver') ? 'driver_id' : 'user_id';
-
         return Ride::query()
-            ->where($column, $user->id)
+            // Global filter to exclude system cancelled rides
+            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
+            // If type is not admin, apply the user/driver filtering logic
+            ->when($type !== 'admin', function ($query) use ($user, $type) {
+                $column = ($type === 'driver') ? 'driver_id' : 'user_id';
+                $query->where($column, $user?->id);
+            })
             ->selectRaw("
             COUNT(CASE WHEN status = ? THEN 1 END) as pending,
             COUNT(CASE WHEN status = ? THEN 1 END) as active,
@@ -55,7 +59,6 @@ class RideLifecycleService
             ->first()
             ->toArray();
     }
-
     /**
      * @param  array{
      *   value?: ?string,
@@ -79,23 +82,37 @@ class RideLifecycleService
         return $query->with($with)->firstOrFail();
     }
 
-    public function getRides(User $user, ?array $validated = null): LengthAwarePaginator
+    // public function getRides(User $user, ?array $validated = null): LengthAwarePaginator
+    // {
+    //     $perPage = (int) ($validated['per_page'] ?? 15);
+    //     $page = (int) ($validated['page'] ?? 1);
+    //     $pageName = $validated['page_name'] ?? 'page';
+
+    //     $query = Ride::query()
+    //         ->where('user_id', $user->id)
+    //         ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
+    //         ->with(['driver', 'conversation', 'histories']);
+
+    //     $rides = $this->rideQueryFilters
+    //         ->apply($query, $validated)
+    //         ->paginate(perPage: $perPage, page: $page, pageName: $pageName)
+    //         ->withQueryString();
+
+    //     return $rides;
+    // }
+
+
+    public function getRides(array $params = []): LengthAwarePaginator
     {
-        $perPage = (int) ($validated['per_page'] ?? 15);
-        $page = (int) ($validated['page'] ?? 1);
-        $pageName = $validated['page_name'] ?? 'page';
+        $perPage = (int) ($params['per_page'] ?? 15);
+        $page = (int) ($params['page'] ?? 1);
+        $pageName = (string) ($params['page_name'] ?? 'page');
+        $filters = (array) ($params['filters'] ?? []);
+        $customQuery = (array) ($params['customQuery'] ?? []);
 
-        $query = Ride::query()
-            ->where('user_id', $user->id)
-            ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['driver', 'conversation', 'histories']);
-
-        $rides = $this->rideQueryFilters
-            ->apply($query, $validated)
-            ->paginate(perPage: $perPage, page: $page, pageName: $pageName)
-            ->withQueryString();
-
-        return $rides;
+        $query = Ride::query()->with(['user', 'driver', 'conversation']);
+        $query = $this->rideQueryFilters->apply(query: $query, filters: $filters, customQuery: $customQuery);
+        return $query->paginate(perPage: $perPage, page: $page, pageName: $pageName)->withQueryString();
     }
 
     /**
