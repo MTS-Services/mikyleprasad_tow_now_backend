@@ -92,4 +92,34 @@ class RideController extends Controller
             );
         }
     }
+
+    public function show(Request $request, string $id): JsonResponse
+    {
+        try {
+            $ride = $this->rideLifecycleService->getRide(params: [
+                'value' => $id,
+                'column' => 'id',
+                'customQuery' => [
+                    'status' => [
+                        'operator' => '!=',
+                        'value' => RideStatusEnum::SYSTEM_CANCELLED->value,
+                    ],
+                ],
+                'with' => ['user', 'driver', 'conversation', 'histories'],
+            ]);
+            return sendResponse(
+                status: true,
+                message: 'Ride fetched successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode(),
+                data: null
+            );
+        }
+    }
 }

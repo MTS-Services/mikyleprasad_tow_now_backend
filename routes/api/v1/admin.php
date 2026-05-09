@@ -18,7 +18,6 @@ Route::controller(RideController::class)->group(function () {
     Route::get('stats', 'stats');
     Route::get('rides', 'index');
     Route::get('rides/{ride}', 'show');
-    Route::get('rides/{ride}/histories', 'showHistories');
 });
 
 Route::get('drivers', [AdminPortalController::class, 'drivers']);
