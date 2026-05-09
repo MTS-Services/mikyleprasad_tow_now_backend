@@ -14,8 +14,8 @@ Route::get('/ping', function (Request $request) {
 
 Route::apiResource('products', ProductController::class);
 
+Route::get('/stats', [RideController::class, 'stats']);
 Route::prefix('rides')->controller(RideController::class)->group(function () {
-    Route::get('/stats', 'stats');
     Route::get('/', 'index');
     Route::post('/', 'store');
     Route::get('/active', 'active');
