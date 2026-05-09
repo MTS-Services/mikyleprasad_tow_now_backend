@@ -36,4 +36,27 @@ class CustomerServce
             ->where('role', UserRole::USER->value)
             ->first();
     }
+
+    public function getCustomerProfile(): ?User
+    {
+        return User::query()
+            ->whereKey(auth()->id())
+            ->where('role', UserRole::USER->value)
+            ->first();
+    }
+    
+    public function updateCustomerProfile(array $data): ?User
+    {
+        $customer = User::query()
+            ->whereKey(auth()->id())
+            ->where('role', UserRole::USER->value)
+            ->first();
+        
+        if ($customer) {
+            $customer->update($data);
+            return $customer;
+        }
+        
+        return null;
+    }
 }
