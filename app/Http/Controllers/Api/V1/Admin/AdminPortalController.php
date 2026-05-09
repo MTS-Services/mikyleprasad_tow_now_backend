@@ -12,6 +12,7 @@ use App\Http\Resources\Api\V1\RideResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Ride;
 use App\Models\User;
+use App\Services\CustomerServce;
 use App\Services\DriverService;
 use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
@@ -25,6 +26,7 @@ class AdminPortalController extends Controller
         private readonly RideQueryFilters $rideQueryFilters,
         private readonly UserActorFilters $userActorFilters,
         private readonly DriverService $driverService,
+        private readonly CustomerServce $customerServce,
     ) {}
 
     public function dashboard(): JsonResponse
@@ -144,32 +146,6 @@ class AdminPortalController extends Controller
         return sendResponse(true, 'Driver fetched successfully.', new AdminDriverDetailResource($driverDetails), HttpStatus::HTTP_OK);
     }
 
-
-    //     public function drivers(Request $request): JsonResponse
-    // {
-    //     $validated = $request->validate([
-    //         'q' => ['sometimes', 'string'],
-    //         'status' => ['sometimes', 'string'],
-    //         'approval_status' => ['sometimes', 'string'],
-    //         'is_suspended' => ['sometimes', 'boolean'],
-    //         'is_featured' => ['sometimes', 'boolean'],
-    //         'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-    //     ]);
-
-    //     $drivers = $this->userActorFilters
-    //         ->apply(
-    //             User::query()->where('role', UserRole::DRIVER->value),
-    //             $validated
-    //         )
-    //         ->orderByDesc('created_at')
-    //         ->paginate((int) ($validated['per_page'] ?? 15))
-    //         ->withQueryString();
-
-    //     return sendResponse(true, 'Admin drivers fetched successfully.', UserResource::collection($drivers), HttpStatus::HTTP_OK);
-
-    // }
-
-
     public function customers(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -178,15 +154,19 @@ class AdminPortalController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $customers = $this->userActorFilters
-            ->apply(
-                User::query()->where('role', UserRole::USER->value),
-                $validated
-            )
-            ->orderByDesc('created_at')
-            ->paginate((int) ($validated['per_page'] ?? 15))
-            ->withQueryString();
+        $customers = $this->customerServce->paginate($validated);
 
         return sendResponse(true, 'Admin customers fetched successfully.', UserResource::collection($customers), HttpStatus::HTTP_OK);
+    }
+    
+    public function showCustomer(User $customer): JsonResponse
+    {
+        $customerDetails = $this->customerServce->find($customer->id);
+    
+        if (! $customerDetails) {
+            return sendResponse(false, 'Customer not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Customer fetched successfully.', new UserResource($customerDetails), HttpStatus::HTTP_OK);
     }
 }

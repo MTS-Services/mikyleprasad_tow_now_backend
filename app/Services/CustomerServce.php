@@ -28,4 +28,12 @@ class CustomerServce
 
         return $query->paginate($perPage)->withQueryString();
     }
+
+    public function find(int $id): ?User
+    {
+        return User::query()
+            ->whereKey($id)
+            ->where('role', UserRole::USER->value)
+            ->first();
+    }
 }

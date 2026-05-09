@@ -47,6 +47,7 @@ class DriverQueryFilters
                 ->orWhere('name', 'like', $like)
                 ->orWhere('address', 'like', $like)
                 ->orWhere('bio', 'like', $like)
+                ->orWhere('phone', 'like', $like)
                 ->orWhereHas('vehicle', function (Builder $vehicleQuery) use ($like): void {
                     $vehicleQuery
                         ->where('name', 'like', $like)
