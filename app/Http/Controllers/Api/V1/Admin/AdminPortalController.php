@@ -7,10 +7,12 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Enums\RideStatusEnum;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\AdminDriverDetailResource;
 use App\Http\Resources\Api\V1\RideResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Ride;
 use App\Models\User;
+use App\Services\DriverService;
 use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +24,7 @@ class AdminPortalController extends Controller
     public function __construct(
         private readonly RideQueryFilters $rideQueryFilters,
         private readonly UserActorFilters $userActorFilters,
+        private readonly DriverService $driverService,
     ) {}
 
     public function dashboard(): JsonResponse
@@ -100,17 +103,72 @@ class AdminPortalController extends Controller
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $drivers = $this->userActorFilters
-            ->apply(
-                User::query()->where('role', UserRole::DRIVER->value),
-                $validated
-            )
-            ->orderByDesc('created_at')
-            ->paginate((int) ($validated['per_page'] ?? 15))
-            ->withQueryString();
+        $filters = [
+            ...$validated,
+            'featured' => $validated['is_featured'] ?? null,
+        ];
 
-        return sendResponse(true, 'Admin drivers fetched successfully.', UserResource::collection($drivers), HttpStatus::HTTP_OK);
+        $drivers = $this->driverService->paginate($filters);
+
+        return sendResponse(
+            true,
+            'Admin drivers fetched successfully.',
+            UserResource::collection($drivers),
+            HttpStatus::HTTP_OK
+        );
     }
+
+    public function acceptDriver(User $driver): JsonResponse
+    {
+        $this->driverService->acceptDriver($driver->id);
+        
+        return sendResponse(true, 'Driver accepted successfully.', null, HttpStatus::HTTP_OK);
+    }
+    
+    public function rejectDriver(User $driver): JsonResponse
+    {
+        $this->driverService->rejectDriver($driver->id);
+        
+        return sendResponse(true, 'Driver rejected successfully.', null, HttpStatus::HTTP_OK);
+    }
+    
+    public function showDriver(User $driver): JsonResponse
+    {
+  
+        $driverDetails = $this->driverService->find($driver->id);
+    
+        if (! $driverDetails) {
+            return sendResponse(false, 'Driver not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Driver fetched successfully.', new AdminDriverDetailResource($driverDetails), HttpStatus::HTTP_OK);
+    }
+
+
+    //     public function drivers(Request $request): JsonResponse
+    // {
+    //     $validated = $request->validate([
+    //         'q' => ['sometimes', 'string'],
+    //         'status' => ['sometimes', 'string'],
+    //         'approval_status' => ['sometimes', 'string'],
+    //         'is_suspended' => ['sometimes', 'boolean'],
+    //         'is_featured' => ['sometimes', 'boolean'],
+    //         'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+    //     ]);
+
+    //     $drivers = $this->userActorFilters
+    //         ->apply(
+    //             User::query()->where('role', UserRole::DRIVER->value),
+    //             $validated
+    //         )
+    //         ->orderByDesc('created_at')
+    //         ->paginate((int) ($validated['per_page'] ?? 15))
+    //         ->withQueryString();
+
+    //     return sendResponse(true, 'Admin drivers fetched successfully.', UserResource::collection($drivers), HttpStatus::HTTP_OK);
+
+    // }
+
 
     public function customers(Request $request): JsonResponse
     {

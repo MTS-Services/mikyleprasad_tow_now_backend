@@ -105,6 +105,7 @@ class UserSeeder extends Seeder
         );
 
         $this->createDrivers();
+        $this->createUsers();
     }
 
     protected function createDrivers(int $count = 300): void
@@ -143,6 +144,27 @@ class UserSeeder extends Seeder
 
             // show Info in console
             $this->command->info('Created driver ' . $driver->name);
+        }
+    }
+
+    protected function createUsers(int $count = 50): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            $user = User::query()->firstOrCreate(
+                ['email' => 'user' . $i . '@dev.com'],
+                [
+                    'name' => 'User ' . $i,
+                    'password' => Hash::make('password'),
+                    'role' => UserRole::USER,
+                    'status' => random_int(0, 1) ? AccountStatus::ACTIVE : AccountStatus::INACTIVE,
+                    'email_verified_at' => now(),
+                    'address' => '123 Main St, Anytown, USA ' . $i,
+                    'bio' => 'I am a demo user ' . $i,
+                ]
+            );
+
+            // show Info in console
+            $this->command->info('Created user ' . $user->name);
         }
     }
 }

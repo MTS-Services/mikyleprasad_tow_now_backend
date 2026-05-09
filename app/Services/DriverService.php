@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ApprovalStatus;
+use App\Enums\RideStatusEnum;
 use App\Enums\UserRole;
+use App\Models\Ride;
 use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -25,7 +27,7 @@ class DriverService
             ->where('role', UserRole::DRIVER->value)
             ->where('approval_status', ApprovalStatus::APPROVED->value)
             ->where('is_suspended', false)
-            ->with('vehicle')
+            // ->with('vehicle')
             ->orderByDesc('id');
 
         $this->driverQueryFilters->apply($query, $filters);
@@ -35,8 +37,101 @@ class DriverService
             $query->where('is_featured', true);
         }
 
-        $perPage = (int) ($filters['per_page'] ?? 10);
+        $perPage = (int) ($filters['per_page'] ?? 15);
 
         return $query->paginate($perPage)->withQueryString();
+    }
+    
+    public function find(int $id): ?User
+    {
+        return User::query()
+            ->whereKey($id)
+            ->where('role', UserRole::DRIVER->value)
+            ->with(['vehicle', 'preferredCurrency', 'assignedRides'])
+            ->first();
+    }
+
+    /**
+     * Get total rides count for a driver
+     */
+    public function getTotalRides(int $driverId): int
+    {
+        return Ride::query()
+            ->where('driver_id', $driverId)
+            ->count();
+    }
+
+    /**
+     * Get completed rides count for a driver
+     */
+    public function getCompletedRides(int $driverId): int
+    {
+        return Ride::query()
+            ->where('driver_id', $driverId)
+            ->where('status', RideStatusEnum::COMPLETED_USER->value)
+            ->count();
+    }
+
+    /**
+     * Get cancelled rides count for a driver
+     */
+    public function getCancelledRides(int $driverId): int
+    {
+        return Ride::query()
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [
+                RideStatusEnum::CANCELLED_BY_USER->value,
+                RideStatusEnum::CANCELLED_BY_DRIVER->value,
+                RideStatusEnum::SYSTEM_CANCELLED->value,
+                RideStatusEnum::EXPIRED->value,
+            ])
+            ->count();
+    }
+
+    /**
+     * Get active rides count for a driver
+     */
+    public function getActiveRides(int $driverId): int
+    {
+        return Ride::query()
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [
+                RideStatusEnum::PENDING->value,
+                RideStatusEnum::ACTIVE->value,
+                RideStatusEnum::ARRIVED->value,
+                RideStatusEnum::PICKED_UP->value,
+                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
+            ])
+            ->count();
+    }
+
+    /**
+     * Get all ride statistics for a driver
+     */
+    public function getRideStatistics(int $driverId): array
+    {
+        return [
+            'total_rides' => $this->getTotalRides($driverId),
+            'completed_rides' => $this->getCompletedRides($driverId),
+            'cancelled_rides' => $this->getCancelledRides($driverId),
+            'active_rides' => $this->getActiveRides($driverId),
+        ];
+    }
+
+
+    public function acceptDriver(int $driverId): void
+    {
+        $driver = User::query()->whereKey($driverId)->where('role', UserRole::DRIVER->value)->first();
+        if ($driver) {
+            $driver->update(['approval_status' => ApprovalStatus::APPROVED->value]);
+        }
+    }
+
+    public function rejectDriver(int $driverId): void
+    {
+        $driver = User::query()->whereKey($driverId)->where('role', UserRole::DRIVER->value)->first();
+        if ($driver) {
+            $driver->update(['approval_status' => ApprovalStatus::REJECTED->value]);
+        }
     }
 }

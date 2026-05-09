@@ -150,4 +150,66 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
     {
         return $this->hasMany(Ride::class, 'driver_id', 'id')->orderByDesc('id');
     }
+
+    /**
+     * Get total rides count for this user (as driver)
+     */
+    public function getTotalRidesAttribute(): int
+    {
+        return $this->assignedRides()->count();
+    }
+
+    /**
+     * Get completed rides count for this user (as driver)
+     */
+    public function getCompletedRidesAttribute(): int
+    {
+        return $this->assignedRides()
+            ->where('status', \App\Enums\RideStatusEnum::COMPLETED_USER->value)
+            ->count();
+    }
+
+    /**
+     * Get cancelled rides count for this user (as driver)
+     */
+    public function getCancelledRidesAttribute(): int
+    {
+        return $this->assignedRides()
+            ->whereIn('status', [
+                \App\Enums\RideStatusEnum::CANCELLED_BY_USER->value,
+                \App\Enums\RideStatusEnum::CANCELLED_BY_DRIVER->value,
+                \App\Enums\RideStatusEnum::SYSTEM_CANCELLED->value,
+                \App\Enums\RideStatusEnum::EXPIRED->value,
+            ])
+            ->count();
+    }
+
+    /**
+     * Get active rides count for this user (as driver)
+     */
+    public function getActiveRidesAttribute(): int
+    {
+        return $this->assignedRides()
+            ->whereIn('status', [
+                \App\Enums\RideStatusEnum::PENDING->value,
+                \App\Enums\RideStatusEnum::ACTIVE->value,
+                \App\Enums\RideStatusEnum::ARRIVED->value,
+                \App\Enums\RideStatusEnum::PICKED_UP->value,
+                \App\Enums\RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
+            ])
+            ->count();
+    }
+
+    /**
+     * Get all ride statistics for this user (as driver)
+     */
+    public function getRideStatisticsAttribute(): array
+    {
+        return [
+            'total_rides' => $this->total_rides,
+            'completed_rides' => $this->completed_rides,
+            'cancelled_rides' => $this->cancelled_rides,
+            'active_rides' => $this->active_rides,
+        ];
+    }
 }

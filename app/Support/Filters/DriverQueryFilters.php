@@ -43,7 +43,8 @@ class DriverQueryFilters
 
         return $query->where(function (Builder $builder) use ($like): void {
             $builder
-                ->where('name', 'like', $like)
+                ->where('username', 'like', $like)
+                ->orWhere('name', 'like', $like)
                 ->orWhere('address', 'like', $like)
                 ->orWhere('bio', 'like', $like)
                 ->orWhereHas('vehicle', function (Builder $vehicleQuery) use ($like): void {
