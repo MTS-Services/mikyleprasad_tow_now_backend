@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\Api\V1\Driver\RideLifecycleController;
+use App\Http\Controllers\Api\V1\Driver\RideController;
 use Illuminate\Support\Facades\Route;
 
-Route::controller(RideLifecycleController::class)->group(function () {
-    Route::get('dashboard', 'dashboard');
+Route::controller(RideController::class)->group(function () {
+    Route::get('stats', 'stats');
     Route::prefix('rides')->group(function () {
         Route::get('/', 'index');
         Route::get('/incoming', 'incoming');
@@ -12,5 +12,6 @@ Route::controller(RideLifecycleController::class)->group(function () {
         Route::post('/{ride}/eta', 'updateEta');
         Route::post('/{ride}/cancel', 'cancel');
         Route::post('/{ride}/complete-request', 'completeRequest');
+        Route::get('/{ride}', 'show');
     });
 });

@@ -17,35 +17,36 @@ class RideQueryFilters
      *   status?: array<int, string>|string|null
      * }  $filters
      */
-    public function apply(Builder $query, array $filters): Builder
+    public function apply(Builder $query, array $filters, ?array $customQuery = null): Builder
     {
         $statuses = $this->normalizeStatuses($filters['status'] ?? null);
         $sort = strtolower((string) ($filters['sort'] ?? 'latest'));
+        $query = $this->applyCustomQuery($query, $customQuery ?? []);
 
         return $query
             ->when(
                 trim((string) ($filters['q'] ?? '')) !== '',
-                fn (Builder $builder): Builder => $this->applySearch($builder, (string) $filters['q'])
+                fn(Builder $builder): Builder => $this->applySearch($builder, (string) $filters['q'])
             )
             ->when(
                 ! empty($statuses),
-                fn (Builder $builder): Builder => $builder->whereIn('status', $statuses)
+                fn(Builder $builder): Builder => $builder->whereIn('status', $statuses)
             )
             ->when(
                 filled($filters['from'] ?? null),
-                fn (Builder $builder): Builder => $builder->whereDate('created_at', '>=', (string) $filters['from'])
+                fn(Builder $builder): Builder => $builder->whereDate('created_at', '>=', (string) $filters['from'])
             )
             ->when(
                 filled($filters['to'] ?? null),
-                fn (Builder $builder): Builder => $builder->whereDate('created_at', '<=', (string) $filters['to'])
+                fn(Builder $builder): Builder => $builder->whereDate('created_at', '<=', (string) $filters['to'])
             )
             ->when(
                 $sort === 'oldest',
-                fn (Builder $builder): Builder => $builder->orderBy('created_at')
+                fn(Builder $builder): Builder => $builder->orderBy('created_at')
             )
             ->when(
                 $sort !== 'oldest',
-                fn (Builder $builder): Builder => $builder->orderByDesc('created_at')
+                fn(Builder $builder): Builder => $builder->orderByDesc('created_at')
             );
     }
 
@@ -84,9 +85,31 @@ class RideQueryFilters
 
         return array_values(
             array_filter(
-                array_map(static fn (mixed $status): string => strtolower(trim((string) $status)), $statuses),
-                static fn (string $status): bool => $status !== ''
+                array_map(static fn(mixed $status): string => strtolower(trim((string) $status)), $statuses),
+                static fn(string $status): bool => $status !== ''
             )
         );
+    }
+
+    public function applyCustomQuery(Builder $query, array $customQuery): Builder
+    {
+        foreach ($customQuery as $column => $data) {
+            // Handle Operator-based queries: ['status' => ['operator' => '!=', 'value' => 'cancelled']]
+            if (is_array($data) && isset($data['operator'], $data['value'])) {
+                $query->where($column, $data['operator'], $data['value']);
+                continue;
+            }
+
+            // Handle whereIn: ['status' => ['pending', 'active']]
+            if (is_array($data)) {
+                $query->whereIn($column, $data);
+                continue;
+            }
+
+            // Default: Exact match
+            $query->where($column, $data);
+        }
+
+        return $query;
     }
 }
