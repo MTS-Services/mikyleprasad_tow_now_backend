@@ -11,6 +11,7 @@ use App\Models\Ride;
 use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class DriverService
 {
@@ -41,7 +42,7 @@ class DriverService
 
         return $query->paginate($perPage)->withQueryString();
     }
-    
+
     public function find(int $id): ?User
     {
         return User::query()
@@ -133,5 +134,31 @@ class DriverService
         if ($driver) {
             $driver->update(['approval_status' => ApprovalStatus::REJECTED->value]);
         }
+    }
+
+
+    
+    public function getDriverProfile(): ?User
+    {
+        return User::query()
+            ->whereKey(auth()->id())
+            ->where('role', UserRole::DRIVER->value)
+            ->with('vehicle')
+            ->first();
+    }
+    
+    public function updateDriverProfile(array $data): ?User
+    {
+        $driver = User::query()
+            ->whereKey(auth()->id())
+            ->where('role', UserRole::DRIVER->value)
+            ->first();
+        
+        if ($driver) {
+            $driver->update($data);
+            return $driver;
+        }
+        
+        return null;
     }
 }
