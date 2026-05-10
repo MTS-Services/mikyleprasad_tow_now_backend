@@ -79,6 +79,11 @@ class UserNotificationService
         $notification->markAsRead();
     }
 
+    public function markAsUnread(UserNotification $notification): void
+    {
+        $notification->markAsUnread();
+    }
+
     public function markAllAsRead(User $user): int
     {
         return $user->userNotifications()
