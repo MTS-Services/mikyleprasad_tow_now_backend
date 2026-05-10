@@ -70,6 +70,12 @@ return [
 
     'notification_test_broadcast_hint' => 'Subscribe to your private notifications channel in Echo to see this event.',
 
+    'notification_dismissed' => 'Notification removed.',
+
+    'notification_admin_new_registration_title' => 'New registration',
+
+    'notification_admin_new_registration_body' => ':name registered as :role.',
+
     'message_sent_successfully' => 'Message sent successfully.',
 
     'conversation_forbidden' => 'You do not have access to this conversation.',

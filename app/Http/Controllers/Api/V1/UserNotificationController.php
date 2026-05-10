@@ -50,7 +50,7 @@ class UserNotificationController extends Controller
             ->whereKey($id)
             ->first();
 
-        if (!$notification) {
+        if (! $notification) {
             return sendResponse(
                 status: false,
                 message: __('api.notification_not_found'),
@@ -66,6 +66,31 @@ class UserNotificationController extends Controller
             status: true,
             message: __('api.notification_marked_read'),
             data: new UserNotificationResource($notification),
+            statusCode: HttpStatus::HTTP_OK
+        );
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $notification = UserNotification::query()
+            ->where('user_id', $request->user()->id)
+            ->whereKey($id)
+            ->first();
+
+        if (! $notification) {
+            return sendResponse(
+                status: false,
+                message: __('api.notification_not_found'),
+                statusCode: HttpStatus::HTTP_NOT_FOUND
+            );
+        }
+
+        $this->userNotificationService->dismiss($notification);
+
+        return sendResponse(
+            status: true,
+            message: __('api.notification_dismissed'),
+            data: null,
             statusCode: HttpStatus::HTTP_OK
         );
     }

@@ -44,6 +44,7 @@ Route::controller(UserNotificationController::class)->prefix('notifications')->g
     Route::post('/read-all', 'markAllRead');
     Route::post('/test-broadcast', 'storeTest');
     Route::post('/{id}/read', 'markAsRead');
+    Route::delete('/{id}', 'destroy');
 });
 
 Route::controller(ConversationController::class)->prefix('conversations')->group(function () {
