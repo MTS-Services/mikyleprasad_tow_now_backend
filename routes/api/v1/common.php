@@ -43,9 +43,10 @@ Route::controller(UserNotificationController::class)->prefix('notifications')->g
     Route::get('/', 'index');
     Route::post('/read-all', 'markAllRead');
     Route::post('/test-broadcast', 'storeTest');
-    Route::post('/{id}/read', 'markAsRead')->whereNumber('id');
-    Route::post('/{id}/unread', 'markAsUnread')->whereNumber('id');
-    Route::get('/{id}', 'show')->whereNumber('id');
+    Route::post('/{id}/read', 'markAsRead');
+    Route::post('/{id}/unread', 'markAsUnread');
+    Route::get('/{id}', 'show');
+    Route::delete('/{id}', 'destroy');
 });
 
 Route::controller(ConversationController::class)->prefix('conversations')->group(function () {

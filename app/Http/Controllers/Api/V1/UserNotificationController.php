@@ -81,7 +81,7 @@ class UserNotificationController extends Controller
     {
         $notification = $this->findOwnedNotification($request->user(), $id);
 
-        if ($notification === null) {
+        if (! $notification) {
             return sendResponse(
                 status: false,
                 message: __('api.notification_not_found'),
@@ -101,6 +101,8 @@ class UserNotificationController extends Controller
             statusCode: HttpStatus::HTTP_OK
         );
     }
+
+
 
     public function markAsUnread(Request $request, int $id): JsonResponse
     {
@@ -148,6 +150,31 @@ class UserNotificationController extends Controller
         }
     }
 
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $notification = UserNotification::query()
+            ->where('user_id', $request->user()->id)
+            ->whereKey($id)
+            ->first();
+
+        if (! $notification) {
+            return sendResponse(
+                status: false,
+                message: __('api.notification_not_found'),
+                statusCode: HttpStatus::HTTP_NOT_FOUND
+            );
+        }
+
+        $this->userNotificationService->dismiss($notification);
+
+        return sendResponse(
+            status: true,
+            message: __('api.notification_dismissed'),
+            data: null,
+            statusCode: HttpStatus::HTTP_OK
+        );
+    }
     /**
      * Local / testing only: create a notification for the current user and broadcast it (verify in Pusher Debug Console).
      */

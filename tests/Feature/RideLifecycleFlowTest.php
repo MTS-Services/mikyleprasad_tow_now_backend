@@ -5,6 +5,7 @@ use App\Enums\RideStatusEnum;
 use App\Models\Ride;
 use App\Models\RideHistory;
 use App\Models\User;
+use App\Models\UserNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Passport\Passport;
@@ -250,4 +251,84 @@ test('active ride cannot be downgraded back to pending', function (): void {
     $this->postJson("/api/v1/driver/rides/{$ride->id}/accept", [
         'eta_minutes' => 15,
     ])->assertStatus(422);
+});
+
+test('ride request creates in-app notifications for rider and driver', function (): void {
+    $user = User::factory()->create();
+    $driver = createApprovedDriver('driver-notify@dev.com');
+
+    Passport::actingAs($user);
+    $this->postJson('/api/v1/user/rides', [
+        'driver_id' => $driver->id,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+    ])->assertCreated();
+
+    $ride = Ride::query()->where('user_id', $user->id)->where('driver_id', $driver->id)->firstOrFail();
+
+    expect(UserNotification::query()->where('user_id', $user->id)->where('type', 'ride.request_sent')->exists())->toBeTrue();
+    expect(UserNotification::query()->where('user_id', $driver->id)->where('type', 'ride.requested')->exists())->toBeTrue();
+});
+
+test('active ride cannot be completed before arrived', function (): void {
+    $user = User::factory()->create();
+    $driver = createApprovedDriver('driver-complete-gate@dev.com');
+
+    Passport::actingAs($user);
+    $this->postJson('/api/v1/user/rides', [
+        'driver_id' => $driver->id,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+    ])->assertCreated();
+
+    $ride = Ride::query()->where('user_id', $user->id)->firstOrFail();
+
+    Passport::actingAs($driver);
+    $this->postJson("/api/v1/driver/rides/{$ride->id}/accept", ['eta_minutes' => 10])->assertOk();
+
+    Passport::actingAs($user);
+    $this->postJson("/api/v1/user/rides/{$ride->id}/complete")->assertStatus(422);
+});
+
+test('arrived ride can be completed and admins receive notification', function (): void {
+    User::factory()->admin()->create(['email' => 'admin-ride@dev.com']);
+
+    $user = User::factory()->create();
+    $driver = createApprovedDriver('driver-arrived-complete@dev.com');
+
+    Passport::actingAs($user);
+    $this->postJson('/api/v1/user/rides', [
+        'driver_id' => $driver->id,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+    ])->assertCreated();
+
+    $ride = Ride::query()->where('user_id', $user->id)->firstOrFail();
+
+    Passport::actingAs($driver);
+    $this->postJson("/api/v1/driver/rides/{$ride->id}/accept", ['eta_minutes' => 10])->assertOk();
+    $this->postJson("/api/v1/driver/rides/{$ride->id}/arrived")->assertOk();
+
+    Passport::actingAs($user);
+    $this->postJson("/api/v1/user/rides/{$ride->id}/complete")->assertOk();
+
+    $ride->refresh();
+    expect($ride->status)->toBe(RideStatusEnum::COMPLETED_USER);
+    expect($ride->total_ride_minutes)->not->toBeNull();
+
+    $admin = User::query()->where('email', 'admin-ride@dev.com')->firstOrFail();
+    expect(UserNotification::query()->where('user_id', $admin->id)->where('type', 'ride.completed_admin')->exists())->toBeTrue();
+});
+
+test('user can dismiss own notification', function (): void {
+    $user = User::factory()->create();
+
+    $notification = UserNotification::factory()->create([
+        'user_id' => $user->id,
+    ]);
+
+    Passport::actingAs($user);
+    $this->deleteJson("/api/v1/notifications/{$notification->id}")->assertOk();
+
+    expect(UserNotification::query()->withTrashed()->find($notification->id)?->trashed())->toBeTrue();
 });

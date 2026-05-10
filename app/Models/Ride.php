@@ -4,11 +4,11 @@ namespace App\Models;
 
 use App\Enums\RideCancelledByEnum;
 use App\Enums\RideStatusEnum;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 
 #[Fillable([
     'uuid',
@@ -29,12 +29,10 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
     'expired_at',
     'accepted_at',
     'arrived_at',
-    'picked_up_at',
     'completion_requested_at',
     'completed_at',
     'cancelled_at',
 ])]
-
 
 class Ride extends Model
 {
@@ -42,7 +40,6 @@ class Ride extends Model
         'expired_at' => 'datetime',
         'accepted_at' => 'datetime',
         'arrived_at' => 'datetime',
-        'picked_up_at' => 'datetime',
         'completion_requested_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',

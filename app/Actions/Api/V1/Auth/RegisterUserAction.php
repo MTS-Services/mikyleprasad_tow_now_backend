@@ -6,13 +6,14 @@ use App\Enums\ApiErrorCode;
 use App\Enums\LoginIdentifierType;
 use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
-use App\Models\Vehicle;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Notifications\Auth\OtpCodeNotification;
 use App\Services\Auth\AuthLoginConfiguration;
 use App\Services\Auth\LoginIdentifierDetector;
 use App\Services\Auth\UserLoginHistoryRecorder;
 use App\Services\Otp\OtpRepository;
+use App\Services\UserNotificationService;
 use App\Support\Auth\GuestToken;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class RegisterUserAction
         protected OtpRepository $otpRepository,
         protected IssuePersonalAccessTokenAction $issuePersonalAccessTokenAction,
         protected UserLoginHistoryRecorder $userLoginHistoryRecorder,
+        protected UserNotificationService $userNotificationService,
     ) {}
 
     /**
@@ -127,6 +129,20 @@ class RegisterUserAction
 
         $this->userLoginHistoryRecorder->record($user, $request);
 
+        $this->userNotificationService->notifyUsersByRole(
+            UserRole::ADMIN,
+            'user.registered',
+            __('api.notification_admin_new_registration_title'),
+            __('api.notification_admin_new_registration_body', [
+                'name' => $user->name ?? $user->email,
+                'role' => $user->role->value,
+            ]),
+            [
+                'registered_user_id' => $user->id,
+                'role' => $user->role->value,
+            ],
+        );
+
         return [
             'user' => $user->fresh(['Vehicle']),
             'access_token' => $accessToken,
@@ -141,42 +157,41 @@ class RegisterUserAction
     {
         return Validator::make($request->all(), [
             'role' => ['required', 'string', Rule::in([UserRole::USER->value, UserRole::DRIVER->value])],
-            'name' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'name' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
             'phone' => [
-                'required_if:role,' . UserRole::DRIVER->value,
+                'required_if:role,'.UserRole::DRIVER->value,
                 'nullable',
                 'string',
                 'max:32',
                 Rule::unique(User::class),
             ],
-            'address' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
+            'address' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
             'locale' => ['nullable', 'string', 'max:24'],
             'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
 
-
-            'car_name' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'brand' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
-            'model' => ['required_if:role,' . UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'car_name' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'brand' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
+            'model' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:255'],
             'capacity' => ['sometimes', 'nullable', 'string', 'max:255'],
             'license_plate' => [
-                'required_if:role,' . UserRole::DRIVER->value,
+                'required_if:role,'.UserRole::DRIVER->value,
                 'nullable',
                 'string',
                 'max:64',
                 Rule::unique(Vehicle::class),
             ],
             'truck_image' => [
-                'required_if:role,' . UserRole::DRIVER->value,
+                'required_if:role,'.UserRole::DRIVER->value,
                 'file',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
             'driving_license_image' => [
-                'required_if:role,' . UserRole::DRIVER->value,
+                'required_if:role,'.UserRole::DRIVER->value,
                 'file',
                 'image',
                 'mimes:jpg,jpeg,png,webp',
@@ -353,7 +368,7 @@ class RegisterUserAction
 
     private function guestScopedFingerprint(LoginIdentifierType $identifierType, string $identifier, string $guestTokenHash): string
     {
-        return OtpRepository::fingerprint($identifierType->value, $identifier . '|guest:' . $guestTokenHash);
+        return OtpRepository::fingerprint($identifierType->value, $identifier.'|guest:'.$guestTokenHash);
     }
 
     private function markIdentifierVerified(User $user, LoginIdentifierType $identifierType): void

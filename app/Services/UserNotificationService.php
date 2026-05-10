@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Events\UserNotificationCreated;
 use App\Models\User;
 use App\Models\UserNotification;
@@ -89,6 +90,43 @@ class UserNotificationService
         return $user->userNotifications()
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Soft-delete a notification for the recipient (hide from inbox only).
+     */
+    public function dismiss(UserNotification $notification): void
+    {
+        $notification->delete();
+    }
+
+    /**
+     * Fan-out one in-app notification per user with the given role (each row broadcasts separately).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function notifyUsersByRole(
+        UserRole $role,
+        string $type,
+        ?string $title = null,
+        ?string $body = null,
+        array $data = [],
+        ?string $actionUrl = null,
+        ?User $sender = null,
+    ): int {
+        $count = 0;
+
+        User::query()
+            ->where('role', $role->value)
+            ->orderBy('id')
+            ->chunkById(100, function ($users) use (&$count, $type, $title, $body, $data, $actionUrl, $sender): void {
+                foreach ($users as $user) {
+                    $this->notify($user, $type, $title, $body, $data, $actionUrl, $sender);
+                    $count++;
+                }
+            });
+
+        return $count;
     }
 
     /**

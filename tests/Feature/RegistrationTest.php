@@ -3,6 +3,7 @@
 use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Notifications\Auth\OtpCodeNotification;
 use App\Services\Otp\OtpRepository;
 use Database\Seeders\DatabaseSeeder;
@@ -16,6 +17,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Config::set('auth_login.login_type', 'password');
+    Config::set('broadcasting.default', 'log');
     $this->seed(DatabaseSeeder::class);
     $this->withHeader('X-Guest-Token', 'guest-test-token');
 });
@@ -33,7 +35,7 @@ test('user registration requires role and email and generates a visual username'
         ->assertJsonMissingPath('data.access_token')
         ->assertJsonPath('data.verification_channel', 'email')
         ->assertJsonPath('data.user.email', 'customer@example.com')
-        ->assertJsonPath('data.user.username', fn($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
+        ->assertJsonPath('data.user.username', fn ($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
 
     $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
 
@@ -128,7 +130,7 @@ test('registration verify creates user and returns access token', function (): v
     $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'needs-verification@example.com|guest:' . hash('sha256', 'guest-test-token')),
+        OtpRepository::fingerprint('email', 'needs-verification@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode($code),
@@ -143,10 +145,41 @@ test('registration verify creates user and returns access token', function (): v
     ])
         ->assertCreated()
         ->assertJsonPath('data.user.email', 'needs-verification@example.com')
-        ->assertJsonPath('data.user.email_verified_at', fn($value): bool => is_string($value) && $value !== '')
-        ->assertJsonPath('data.access_token', fn($value): bool => is_string($value) && $value !== '');
+        ->assertJsonPath('data.user.email_verified_at', fn ($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 
     expect($user->username)->not->toBeNull();
+});
+
+test('registration verify notifies admins with in-app notification', function (): void {
+    Notification::fake();
+
+    User::factory()->admin()->create(['email' => 'admin-reg-notify@example.com']);
+
+    $this->postJson('/api/v1/register', [
+        'role' => UserRole::USER->value,
+        'email' => 'admin-notify-user@example.com',
+    ])->assertCreated();
+
+    $user = User::query()->where('email', 'admin-notify-user@example.com')->firstOrFail();
+    app(OtpRepository::class)->put(
+        OtpPurpose::VerifyEmail,
+        OtpRepository::fingerprint('email', 'admin-notify-user@example.com|guest:'.hash('sha256', 'guest-test-token')),
+        [
+            'user_id' => $user->id,
+            'hash' => OtpRepository::hashCode('424242'),
+            'guest_token_hash' => hash('sha256', 'guest-test-token'),
+        ],
+        10
+    );
+
+    $this->postJson('/api/v1/otp/register/verify', [
+        'email' => 'admin-notify-user@example.com',
+        'code' => '424242',
+    ])->assertCreated();
+
+    $admin = User::query()->where('email', 'admin-reg-notify@example.com')->firstOrFail();
+    expect(UserNotification::query()->where('user_id', $admin->id)->where('type', 'user.registered')->exists())->toBeTrue();
 });
 
 test('registration otp can be resent before verification', function (): void {
@@ -178,7 +211,7 @@ test('registration otp verify must use the same guest token session', function (
     $user = User::query()->where('email', 'guest-bound@example.com')->firstOrFail();
     app(OtpRepository::class)->put(
         OtpPurpose::VerifyEmail,
-        OtpRepository::fingerprint('email', 'guest-bound@example.com|guest:' . hash('sha256', 'guest-test-token')),
+        OtpRepository::fingerprint('email', 'guest-bound@example.com|guest:'.hash('sha256', 'guest-test-token')),
         [
             'user_id' => $user->id,
             'hash' => OtpRepository::hashCode('333333'),

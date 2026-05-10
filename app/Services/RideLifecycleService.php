@@ -38,16 +38,17 @@ class RideLifecycleService
                 $column = ($type === 'driver') ? 'driver_id' : 'user_id';
                 $query->where($column, $user?->id);
             })
-            ->selectRaw("
+            ->selectRaw('
             COUNT(CASE WHEN status = ? THEN 1 END) as pending,
-            COUNT(CASE WHEN status = ? THEN 1 END) as active,
+            COUNT(CASE WHEN status IN (?, ?) THEN 1 END) as active,
             COUNT(CASE WHEN status = ? THEN 1 END) as completed,
             COUNT(CASE WHEN status IN (?, ?, ?, ?) THEN 1 END) as cancelled,
             COUNT(CASE WHEN status = ? THEN 1 END) as expired,
             COUNT(CASE WHEN status != ? THEN 1 END) as total
-        ", [
+        ', [
                 RideStatusEnum::PENDING->value,
                 RideStatusEnum::ACTIVE->value,
+                RideStatusEnum::ARRIVED->value,
                 RideStatusEnum::COMPLETED_USER->value,
                 RideStatusEnum::CANCELLED_BY_DRIVER->value,
                 RideStatusEnum::CANCELLED_BY_USER->value,
@@ -59,6 +60,7 @@ class RideLifecycleService
             ->first()
             ->toArray();
     }
+
     /**
      * @param  array{
      *   value?: ?string,
@@ -101,7 +103,6 @@ class RideLifecycleService
     //     return $rides;
     // }
 
-
     public function getRides(array $params = []): LengthAwarePaginator
     {
         $perPage = (int) ($params['per_page'] ?? 15);
@@ -110,8 +111,9 @@ class RideLifecycleService
         $filters = (array) ($params['filters'] ?? []);
         $customQuery = (array) ($params['customQuery'] ?? []);
 
-        $query = Ride::query()->with(['user', 'driver', 'conversation']);
+        $query = Ride::query()->with(['user', 'driver', 'conversation', 'histories']);
         $query = $this->rideQueryFilters->apply(query: $query, filters: $filters, customQuery: $customQuery);
+
         return $query->paginate(perPage: $perPage, page: $page, pageName: $pageName)->withQueryString();
     }
 
@@ -139,7 +141,7 @@ class RideLifecycleService
 
             $userHasActiveRide = Ride::query()
                 ->where('user_id', $user->id)
-                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
                 ->lockForUpdate()
                 ->exists();
 
@@ -149,7 +151,7 @@ class RideLifecycleService
 
             $driverHasActiveRide = Ride::query()
                 ->where('driver_id', $driver->id)
-                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
                 ->lockForUpdate()
                 ->exists();
 
@@ -200,6 +202,18 @@ class RideLifecycleService
                     'conversation_id' => $conversation->id,
                 ],
                 sender: $user
+            );
+
+            $this->userNotificationService->notify(
+                recipient: $user,
+                type: 'ride.request_sent',
+                title: 'Ride request sent',
+                body: 'Your ride request was sent to the driver.',
+                data: [
+                    'ride_id' => $ride->id,
+                    'conversation_id' => $conversation->id,
+                ],
+                sender: null
             );
 
             return $ride->load(['user', 'driver', 'conversation', 'histories']);
@@ -303,7 +317,7 @@ class RideLifecycleService
             $driverHasAnotherActiveRide = Ride::query()
                 ->where('driver_id', $driver->id)
                 ->whereKeyNot($ride->id)
-                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
                 ->lockForUpdate()
                 ->exists();
 
@@ -314,7 +328,7 @@ class RideLifecycleService
             $userHasAnotherActiveRide = Ride::query()
                 ->where('user_id', $ride->user_id)
                 ->whereKeyNot($ride->id)
-                ->where('status', RideStatusEnum::ACTIVE->value)
+                ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
                 ->lockForUpdate()
                 ->exists();
 
@@ -394,18 +408,79 @@ class RideLifecycleService
         });
     }
 
+    public function markArrived(Ride $ride, User $actor): Ride
+    {
+        if ($ride->user_id !== $actor->id && $ride->driver_id !== $actor->id) {
+            throw new HttpException(403, __('auth.unauthorized'));
+        }
+
+        return DB::transaction(function () use ($ride, $actor): Ride {
+            $ride = Ride::query()
+                ->whereKey($ride->id)
+                ->with(['user', 'driver', 'conversation', 'histories'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($ride->status === RideStatusEnum::ARRIVED) {
+                return $ride->load(['user', 'driver', 'conversation', 'histories']);
+            }
+
+            if ($ride->status !== RideStatusEnum::ACTIVE) {
+                throw new HttpException(422, 'Only active rides can be marked as arrived.');
+            }
+
+            $from = $ride->status;
+            $totalArrivalMinutes = $ride->accepted_at !== null
+                ? max(0, (int) $ride->accepted_at->diffInMinutes(now()))
+                : null;
+
+            $ride->forceFill([
+                'status' => RideStatusEnum::ARRIVED->value,
+                'arrived_at' => now(),
+                'total_arrival_minutes' => $totalArrivalMinutes,
+            ])->save();
+
+            $this->logRideHistory($ride, $actor, RideHistoryTypeEnum::STATUS, $from, RideStatusEnum::ARRIVED);
+            $this->logConversationActivity($ride->conversation, $actor->id, 'ride.arrived', [
+                'ride_id' => $ride->id,
+            ]);
+
+            $this->userNotificationService->notify(
+                recipient: $ride->user,
+                type: 'ride.arrived',
+                title: 'Driver arrived',
+                body: 'The ride was marked as arrived at the pickup location.',
+                data: ['ride_id' => $ride->id],
+                sender: $actor
+            );
+
+            $this->userNotificationService->notify(
+                recipient: $ride->driver,
+                type: 'ride.arrived',
+                title: 'Driver arrived',
+                body: 'The ride was marked as arrived at the pickup location.',
+                data: ['ride_id' => $ride->id],
+                sender: $actor
+            );
+
+            return $ride->load(['user', 'driver', 'conversation', 'histories']);
+        });
+    }
+
     public function completeByUser(Ride $ride, User $user): Ride
     {
         if ($ride->user_id !== $user->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        if ($ride->status !== RideStatusEnum::ACTIVE) {
-            throw new HttpException(422, 'Ride is not ready to complete.');
+        if ($ride->status !== RideStatusEnum::ARRIVED) {
+            throw new HttpException(422, 'Ride must be marked arrived before it can be completed.');
         }
 
         return DB::transaction(function () use ($ride, $user): Ride {
             $from = $ride->status;
-            $rideMinutes = $ride->accepted_at ? max(0, now()->diffInMinutes($ride->accepted_at)) : null;
+            $rideMinutes = $ride->arrived_at !== null
+                ? max(0, (int) $ride->arrived_at->diffInMinutes(now()))
+                : null;
 
             $ride->forceFill([
                 'status' => RideStatusEnum::COMPLETED_USER->value,
@@ -427,6 +502,8 @@ class RideLifecycleService
                 sender: $user
             );
 
+            $this->notifyAdminsRideCompleted($ride);
+
             return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
     }
@@ -436,13 +513,15 @@ class RideLifecycleService
         if ($ride->driver_id !== $driver->id) {
             throw new HttpException(403, __('auth.unauthorized'));
         }
-        if ($ride->status !== RideStatusEnum::ACTIVE) {
-            throw new HttpException(422, 'Only active rides can be completed.');
+        if ($ride->status !== RideStatusEnum::ARRIVED) {
+            throw new HttpException(422, 'Ride must be marked arrived before it can be completed.');
         }
 
         return DB::transaction(function () use ($ride, $driver): Ride {
             $from = $ride->status;
-            $rideMinutes = $ride->accepted_at ? max(0, now()->diffInMinutes($ride->accepted_at)) : null;
+            $rideMinutes = $ride->arrived_at !== null
+                ? max(0, (int) $ride->arrived_at->diffInMinutes(now()))
+                : null;
 
             $ride->forceFill([
                 'status' => RideStatusEnum::COMPLETED_USER->value,
@@ -463,6 +542,8 @@ class RideLifecycleService
                 data: ['ride_id' => $ride->id],
                 sender: $driver
             );
+
+            $this->notifyAdminsRideCompleted($ride);
 
             return $ride->load(['user', 'driver', 'conversation', 'histories']);
         });
@@ -535,9 +616,26 @@ class RideLifecycleService
             throw new HttpException(422, 'Ride is already finalized.');
         }
 
-        if (! in_array($ride->status, [RideStatusEnum::PENDING, RideStatusEnum::ACTIVE], true)) {
+        if (! in_array($ride->status, [RideStatusEnum::PENDING, RideStatusEnum::ACTIVE, RideStatusEnum::ARRIVED], true)) {
             throw new HttpException(422, 'Ride cannot be cancelled in its current state.');
         }
+    }
+
+    private function notifyAdminsRideCompleted(Ride $ride): void
+    {
+        $this->userNotificationService->notifyUsersByRole(
+            UserRole::ADMIN,
+            'ride.completed_admin',
+            'Ride completed',
+            "Ride #{$ride->id} was marked completed.",
+            [
+                'ride_id' => $ride->id,
+                'user_id' => $ride->user_id,
+                'driver_id' => $ride->driver_id,
+            ],
+            null,
+            null
+        );
     }
 
     private function logConversationActivity(?Conversation $conversation, ?int $actorId, string $action, array $data = []): void

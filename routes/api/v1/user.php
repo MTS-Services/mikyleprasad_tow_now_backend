@@ -22,6 +22,7 @@ Route::prefix('rides')->controller(RideController::class)->group(function () {
     Route::get('/active', 'active');
     Route::get('/{ride}', 'show');
     Route::post('/{ride}/cancel', 'cancel');
+    Route::post('/{ride}/arrived', 'markArrived');
     Route::post('/{ride}/complete', 'complete');
 });
 
