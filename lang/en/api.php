@@ -58,7 +58,11 @@ return [
 
     'notification_not_found' => 'Notification not found.',
 
+    'notification_fetched_successfully' => 'Notification retrieved successfully.',
+
     'notification_marked_read' => 'Notification marked as read.',
+
+    'notification_marked_unread' => 'Notification marked as unread.',
 
     'notifications_marked_all_read' => 'All notifications marked as read.',
 

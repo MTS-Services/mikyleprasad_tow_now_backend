@@ -11,9 +11,11 @@ use App\Models\Ride;
 use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class DriverService
 {
@@ -147,11 +149,18 @@ class DriverService
             ->first();
     }
 
-    public function updateDriverProfile(array $data): ?User
+    public function updateDriverProfile(Request $request, array $data): ?User
     {
         Validator::make($data, [
             'name'    => ['sometimes', 'string', 'max:255'],
-            'phone'   => ['sometimes', 'string', 'max:20'],
+            'phone' => [
+                'sometimes', 'string', 'max:20',
+                Rule::unique('users', 'phone')->ignore($request->user()->id),
+            ],
+            'email' => [
+                'sometimes', 'email',
+                Rule::unique('users', 'email')->ignore($request->user()->id),
+            ],
             'address' => ['sometimes', 'string', 'max:500'],
             'avatar'  => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ])->validate();

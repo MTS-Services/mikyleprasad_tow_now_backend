@@ -6,9 +6,11 @@ use App\Enums\UserRole;
 use App\Models\User;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CustomerServce
 {
@@ -48,11 +50,18 @@ class CustomerServce
             ->first();
     }
 
-    public function updateCustomerProfile(array $data): ?User
+    public function updateCustomerProfile(Request $request, array $data): ?User
     {
         Validator::make($data, [
             'name'   => ['sometimes', 'string', 'max:255'],
-            'phone'  => ['sometimes', 'string', 'max:20'],
+            'phone' => [
+                'sometimes', 'string', 'max:20',
+                Rule::unique('users', 'phone')->ignore($request->user()->id),
+            ],
+            'email' => [
+                'sometimes', 'email',
+                Rule::unique('users', 'email')->ignore($request->user()->id),
+            ],
             'avatar' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ])->validate();
 

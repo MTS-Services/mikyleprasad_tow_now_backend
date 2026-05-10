@@ -21,6 +21,7 @@ class AdminProfileResource extends JsonResource
                     'name' => $this->resource['admin']->name,
                     'email' => $this->resource['admin']->email,
                     'phone' => $this->resource['admin']->phone,
+                    'avatar' => $this->resource['admin']->avatar,
                 ],
                 'site_setting' => $this->resource['site_setting'] ? [
                     'id' => $this->resource['site_setting']->id,
@@ -37,6 +38,8 @@ class AdminProfileResource extends JsonResource
                 'name' => $this->resource->name,
                 'email' => $this->resource->email,
                 'phone' => $this->resource->phone,
+                'avatar' => $this->resource->avatar,
+                'avatar_url' => $this->avatar_url,
             ];
         }
 

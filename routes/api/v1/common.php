@@ -39,11 +39,13 @@ Route::controller(TwoFactorApiController::class)->prefix('two-factor')->group(fu
 
 Route::patch('/preferences', [UserPreferencesController::class, 'update']);
 
-Route::controller(UserNotificationController::class)->prefix('notifications')->group(function () {
+Route::controller(UserNotificationController::class)->prefix('notifications')->group(function (): void {
     Route::get('/', 'index');
     Route::post('/read-all', 'markAllRead');
     Route::post('/test-broadcast', 'storeTest');
     Route::post('/{id}/read', 'markAsRead');
+    Route::post('/{id}/unread', 'markAsUnread');
+    Route::get('/{id}', 'show');
     Route::delete('/{id}', 'destroy');
 });
 
