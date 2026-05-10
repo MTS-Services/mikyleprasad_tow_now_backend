@@ -32,7 +32,7 @@ class UserNotificationController extends Controller
                 $query->whereNull('read_at');
             }
 
-            $perPage = $validated['per_page'] ?? 15;
+            $perPage = $validated['per_page'] ?? 10;
 
             $paginator = $query->paginate($perPage)->withQueryString();
 
