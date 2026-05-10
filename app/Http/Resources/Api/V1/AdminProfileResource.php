@@ -39,6 +39,7 @@ class AdminProfileResource extends JsonResource
                 'email' => $this->resource->email,
                 'phone' => $this->resource->phone,
                 'avatar' => $this->resource->avatar,
+                'avatar_url' => $this->avatar_url,
             ];
         }
 
