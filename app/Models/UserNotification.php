@@ -57,6 +57,15 @@ class UserNotification extends Model
         $this->forceFill(['read_at' => now()])->save();
     }
 
+    public function markAsUnread(): void
+    {
+        if ($this->read_at === null) {
+            return;
+        }
+
+        $this->forceFill(['read_at' => null])->save();
+    }
+
     /**
      * @return array<string, string>
      */
