@@ -3,46 +3,79 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\SiteSetting;
 use App\Enums\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class AdminServce
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
-    {
-    }
-    
-    public function getAdminProfile(Request $request): ?User
+    public function __construct() {}
+
+    public function getAdminProfile(Request $request): ?array
     {
         $userId = $request->user()->id;
-        return User::query()
+
+        $admin = User::query()
             ->whereKey($userId)
             ->where('role', UserRole::ADMIN->value)
             ->with('vehicle')
             ->first();
-    }
-
-    public function updateAdminProfile(Request $request, array $data): ?User
-    {
-        Validator::make($data, [
-            'name'    => ['sometimes', 'string', 'max:255'],
-            'phone'   => ['sometimes', 'string', 'max:20'],
-            'address' => ['sometimes', 'string', 'max:500'],
-        ])->validate();
-
-        $admin = $this->getAdminProfile($request);
 
         if (! $admin) {
             return null;
         }
 
-        $admin->update($data);
+        $siteSetting = SiteSetting::query()->first();
 
-        return $admin->fresh();
+        return [
+            'admin' => $admin,
+            'site_setting' => $siteSetting,
+        ];
+    }
+
+    public function updateAdminProfile(Request $request, array $data): ?array
+    {
+        Validator::make($data, [
+            'name'        => ['sometimes', 'string', 'max:255'],
+            'phone'       => ['sometimes', 'string', 'max:20'],
+            'address'     => ['sometimes', 'string', 'max:500'],
+
+            'site_email'  => ['sometimes', 'email'],
+            'site_phone'  => ['sometimes', 'string'],
+            'site_address' => ['sometimes', 'string'],
+        ])->validate();
+
+        $admin = User::query()
+            ->whereKey($request->user()->id)
+            ->where('role', UserRole::ADMIN->value)
+            ->first();
+
+        if (! $admin) {
+            return null;
+        }
+
+        // admin update
+        $admin->update([
+            'name'    => $data['name'] ?? $admin->name,
+            'phone'   => $data['phone'] ?? $admin->phone,
+            'address' => $data['address'] ?? $admin->address,
+        ]);
+
+        // site setting update
+        $siteSetting = SiteSetting::query()->first();
+
+        if ($siteSetting) {
+            $siteSetting->update([
+                'site_email' => $data['site_email'] ?? $siteSetting->site_email,
+                'site_phone' => $data['site_phone'] ?? $siteSetting->site_phone,
+                'site_address' => $data['site_address'] ?? $siteSetting->site_address,
+            ]);
+        }
+
+        return [
+            'admin' => $admin->fresh(),
+            'site_setting' => $siteSetting?->fresh(),
+        ];
     }
 }
-

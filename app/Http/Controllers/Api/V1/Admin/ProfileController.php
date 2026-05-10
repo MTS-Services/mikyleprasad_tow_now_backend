@@ -13,27 +13,26 @@ class ProfileController extends Controller
     public function __construct(
         private AdminServce $adminService
     ) {}
-    
-    public function index(Request $request)
-    {
 
-        $admin = $this->adminService->getAdminProfile($request->user()->id);
+public function index(Request $request)
+{
+    $data = $this->adminService->getAdminProfile($request);
 
-        if (! $admin) {
-            return sendResponse(false, 'Admin profile not found.', null, HttpStatus::HTTP_NOT_FOUND);
-        }
-
-        return sendResponse(true, 'Admin profile fetched successfully.', new AdminProfileResource($admin), HttpStatus::HTTP_OK);
+    if (! $data) {
+        return sendResponse(false, 'Admin profile not found.', null, HttpStatus::HTTP_NOT_FOUND);
     }
 
-    public function update(Request $request)
-    {
-        $admin = $this->adminService->updateAdminProfile($request, $request->all());  
+    return sendResponse(true, 'Data fetched successfully.', new AdminProfileResource($data), HttpStatus::HTTP_OK);
+}
 
-        if (! $admin) {
-            return sendResponse(false, 'Admin profile not found.', null, HttpStatus::HTTP_NOT_FOUND);
-        }
+public function update(Request $request)
+{
+    $data = $this->adminService->updateAdminProfile($request, $request->all());
 
-        return sendResponse(true, 'Admin profile updated successfully.', new AdminProfileResource($admin), HttpStatus::HTTP_OK);
+    if (! $data) {
+        return sendResponse(false, 'Admin profile not found.', null, HttpStatus::HTTP_NOT_FOUND);
     }
+
+    return sendResponse(true, 'Data updated successfully.', new AdminProfileResource($data), HttpStatus::HTTP_OK);
+}
 }

@@ -29,7 +29,7 @@ Route::get('customers', [AdminPortalController::class, 'customers']);
 Route::get('customers/{customer}', [AdminPortalController::class, 'showCustomer']);
 
 Route::controller(ProfileController::class)->group(function () {
-    Route::get('profile/', 'index');
+    Route::get('profile', 'index');
     Route::post('profile/update', 'update');
 });
 
