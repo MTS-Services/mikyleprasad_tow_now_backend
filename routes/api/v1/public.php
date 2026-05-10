@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DriverSearchController;
 use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\OtpAuthController;
+use App\Http\Controllers\Api\V1\SiteSettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->group(function () {
@@ -33,3 +34,6 @@ Route::get('/currencies', [CurrencyController::class, 'index']);
 Route::get('/drivers/find', [DriverSearchController::class, 'index']);
 Route::get('/drivers/stats', [DriverSearchController::class, 'stats']);
 Route::get('/drivers/{id}', [DriverSearchController::class, 'show']);
+
+Route::get('/site-settings', [SiteSettingsController::class, 'index']);
+
