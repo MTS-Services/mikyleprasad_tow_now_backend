@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\AdminPortalController;
+use App\Http\Controllers\Api\V1\Admin\ProfileController;
 use App\Http\Controllers\Api\V1\Admin\RideController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,3 +27,9 @@ Route::post('drivers/{driver}/reject', [AdminPortalController::class, 'rejectDri
 Route::get('drivers/{driver}', [AdminPortalController::class, 'showDriver']);
 Route::get('customers', [AdminPortalController::class, 'customers']);
 Route::get('customers/{customer}', [AdminPortalController::class, 'showCustomer']);
+
+Route::controller(ProfileController::class)->group(function () {
+    Route::get('profile', 'index');
+    Route::post('profile/update', 'update');
+});
+
