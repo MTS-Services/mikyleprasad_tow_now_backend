@@ -29,6 +29,7 @@ class RideController extends Controller
     {
         try {
             $stats = $this->rideLifecycleService->getStats($request->user(), 'driver');
+
             return sendResponse(
                 status: true,
                 message: 'Driver rides stats fetched successfully.',
@@ -195,6 +196,20 @@ class RideController extends Controller
         }
     }
 
+    public function markArrived(Request $request, Ride $ride): JsonResponse
+    {
+        try {
+            $ride = $this->rideLifecycleService->markArrived(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user()
+            );
+
+            return sendResponse(true, 'Ride marked as arrived.', new RideResource($ride), HttpStatus::HTTP_OK);
+        } catch (HttpException $e) {
+            return sendResponse(false, $e->getMessage(), statusCode: $e->getStatusCode());
+        }
+    }
+
     /**
      * @param  array<int, string>  $statuses
      * @param  array<string, mixed>  $filters
@@ -204,7 +219,7 @@ class RideController extends Controller
         $query = Ride::query()
             ->where('driver_id', $request->user()->id)
             ->where('status', '!=', RideStatusEnum::SYSTEM_CANCELLED->value)
-            ->with(['user', 'driver', 'conversation']);
+            ->with(['user', 'driver', 'conversation', 'histories']);
 
         return $this->rideQueryFilters->apply($query, array_merge($filters, ['status' => $statuses]));
     }
@@ -217,6 +232,7 @@ class RideController extends Controller
         return match ($tab) {
             'active' => [
                 RideStatusEnum::ACTIVE->value,
+                RideStatusEnum::ARRIVED->value,
             ],
             'completed' => [
                 RideStatusEnum::COMPLETED_USER->value,

@@ -50,6 +50,7 @@ class AdminPortalController extends Controller
                     'active_rides' => Ride::query()->whereIn('status', [
                         RideStatusEnum::PENDING->value,
                         RideStatusEnum::ACTIVE->value,
+                        RideStatusEnum::ARRIVED->value,
                     ])->count(),
                 ],
                 'recent_rides' => RideResource::collection($recentRides),
@@ -123,22 +124,22 @@ class AdminPortalController extends Controller
     public function acceptDriver(User $driver): JsonResponse
     {
         $this->driverService->acceptDriver($driver->id);
-        
+
         return sendResponse(true, 'Driver accepted successfully.', null, HttpStatus::HTTP_OK);
     }
-    
+
     public function rejectDriver(User $driver): JsonResponse
     {
         $this->driverService->rejectDriver($driver->id);
-        
+
         return sendResponse(true, 'Driver rejected successfully.', null, HttpStatus::HTTP_OK);
     }
-    
+
     public function showDriver(User $driver): JsonResponse
     {
-  
+
         $driverDetails = $this->driverService->find($driver->id);
-    
+
         if (! $driverDetails) {
             return sendResponse(false, 'Driver not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
         }
@@ -158,11 +159,11 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Admin customers fetched successfully.', UserResource::collection($customers), HttpStatus::HTTP_OK);
     }
-    
+
     public function showCustomer(User $customer): JsonResponse
     {
         $customerDetails = $this->customerServce->find($customer->id);
-    
+
         if (! $customerDetails) {
             return sendResponse(false, 'Customer not found.', statusCode: HttpStatus::HTTP_NOT_FOUND);
         }

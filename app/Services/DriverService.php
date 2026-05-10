@@ -101,8 +101,6 @@ class DriverService
                 RideStatusEnum::PENDING->value,
                 RideStatusEnum::ACTIVE->value,
                 RideStatusEnum::ARRIVED->value,
-                RideStatusEnum::PICKED_UP->value,
-                RideStatusEnum::COMPLETED_DRIVER_PENDING_USER->value,
             ])
             ->count();
     }
@@ -119,7 +117,6 @@ class DriverService
             'active_rides' => $this->getActiveRides($driverId),
         ];
     }
-
 
     public function acceptDriver(int $driverId): void
     {

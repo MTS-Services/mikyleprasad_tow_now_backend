@@ -106,7 +106,7 @@ class RideController extends Controller
     {
         $ride = Ride::query()
             ->where('user_id', $request->user()->id)
-            ->where('status', RideStatusEnum::ACTIVE->value)
+            ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
             ->with(['driver', 'user', 'conversation', 'histories'])
             ->latest('id')
             ->first();
@@ -180,6 +180,29 @@ class RideController extends Controller
             return sendResponse(
                 status: true,
                 message: 'Ride completed successfully.',
+                data: new RideResource($ride),
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (HttpException $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                statusCode: $e->getStatusCode()
+            );
+        }
+    }
+
+    public function markArrived(Request $request, Ride $ride): JsonResponse
+    {
+        try {
+            $ride = $this->rideLifecycleService->markArrived(
+                $ride->load(['user', 'driver', 'conversation', 'histories']),
+                $request->user()
+            );
+
+            return sendResponse(
+                status: true,
+                message: 'Ride marked as arrived.',
                 data: new RideResource($ride),
                 statusCode: HttpStatus::HTTP_OK
             );
