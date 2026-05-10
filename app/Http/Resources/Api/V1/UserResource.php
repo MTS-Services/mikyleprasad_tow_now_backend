@@ -17,17 +17,17 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'username' => $this->username,
             'email' => $this->email,
-            'avatar' => $this->avatar,
+            'avatar_url' => $this->avatar ? storage_url($this->avatar) : null,
             'phone' => $this->phone,
             'locale' => $this->locale,
             'timezone' => $this->timezone,
             'preferred_currency' => $this->whenLoaded(
                 'preferredCurrency',
-                fn () => new PublicCurrencyResource($this->preferredCurrency)
+                fn() => new PublicCurrencyResource($this->preferredCurrency)
             ),
             'role' => $this->role->value,
             'role_label' => $this->role->label(),
-            'vehicle' => $this->whenLoaded('vehicle', fn (): array => [
+            'vehicle' => $this->whenLoaded('vehicle', fn(): array => [
                 'id' => $this->vehicle->id,
                 'name' => $this->vehicle->name,
                 'description' => $this->vehicle->description,
@@ -51,7 +51,7 @@ class UserResource extends JsonResource
             'phone_verified_at' => $this->phone_verified_at?->toIso8601String(),
             'ride_statistics' => $this->when(
                 $this->role?->value === 'driver',
-                fn () => [
+                fn() => [
                     'total_rides' => $this->total_rides,
                     'completed_rides' => $this->completed_rides,
                     'cancelled_rides' => $this->cancelled_rides,
