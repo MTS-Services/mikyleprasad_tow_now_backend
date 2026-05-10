@@ -213,14 +213,4 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
             'active_rides' => $this->active_rides,
         ];
     }
-
-    public function getAvatarUrlAttribute(): ?string
-    {
-       if(!$this->avatar) return null;
-       return Storage::url($this->avatar);
-    }
-
-    protected $appends = [ 
-        'avatar_url',
-    ];
 }
