@@ -17,7 +17,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
@@ -45,8 +44,12 @@ use Laravel\Passport\HasApiTokens;
     'two_factor_recovery_codes',
     'two_factor_confirmed_at',
     'remember_token',
+    'fcm_token',
+    'current_lat',
+    'current_lng',
+    'location_updated_at',
 ])]
-#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'fcm_token'])]
 class User extends Authenticatable implements CanResetPasswordContract, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -90,6 +93,9 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
             'two_factor_confirmed_at' => 'datetime',
             'status' => AccountStatus::class,
             'approval_status' => ApprovalStatus::class,
+            'current_lat' => 'float',
+            'current_lng' => 'float',
+            'location_updated_at' => 'datetime',
         ];
     }
 

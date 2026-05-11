@@ -5,13 +5,18 @@ namespace App\Providers;
 use App\Contracts\Currency\CurrencyContextInterface;
 use App\Contracts\Sms\SmsGateway;
 use App\Enums\LoginType;
+use App\Models\Ride;
+use App\Observers\RideObserver;
 use App\Services\Auth\AuthLoginConfiguration;
 use App\Services\Auth\LoginIdentifierDetector;
 use App\Services\Currency\CurrencyContext;
 use App\Services\Currency\CurrencyDisplayResolver;
+use App\Events\UserNotificationCreated;
+use App\Listeners\DispatchFcmOnUserNotificationCreated;
 use App\Services\Sms\UnavailableSmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -29,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Ride::observe(RideObserver::class);
+
+        Event::listen(UserNotificationCreated::class, DispatchFcmOnUserNotificationCreated::class);
+
         $this->validateCurrencyConfig();
         RateLimiter::for('api-login', function (Request $request) {
             $authLogin = app(AuthLoginConfiguration::class);
@@ -116,6 +125,24 @@ class AppServiceProvider extends ServiceProvider
             $userId = $request->user()?->getAuthIdentifier() ?? 'guest';
 
             return Limit::perMinute(10)->by((string) $userId.'|'.$request->ip());
+        });
+
+        RateLimiter::for('ride-track', function (Request $request): Limit {
+            $userId = $request->user()?->getAuthIdentifier() ?? 'guest';
+
+            return Limit::perMinute(30)->by((string) $userId);
+        });
+
+        RateLimiter::for('ride-offline-sync', function (Request $request): Limit {
+            $userId = $request->user()?->getAuthIdentifier() ?? 'guest';
+
+            return Limit::perMinute(10)->by((string) $userId);
+        });
+
+        RateLimiter::for('driver-location', function (Request $request): Limit {
+            $userId = $request->user()?->getAuthIdentifier() ?? 'guest';
+
+            return Limit::perMinute(60)->by((string) $userId);
         });
 
         RateLimiter::for('api-sensitive-action-otp-request', function (Request $request) {

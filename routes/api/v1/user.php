@@ -20,7 +20,9 @@ Route::get('/stats', [RideController::class, 'stats']);
 Route::prefix('rides')->controller(RideController::class)->group(function () {
     Route::get('/', 'index');
     Route::post('/', 'store');
+    Route::post('/offline-sync', 'offlineSync')->middleware('throttle:ride-offline-sync');
     Route::get('/active', 'active');
+    Route::get('/{ride}/track', 'track')->middleware('throttle:ride-track');
     Route::get('/{ride}', 'show');
     Route::post('/{ride}/cancel', 'cancel');
     Route::post('/{ride}/arrived', 'markArrived');

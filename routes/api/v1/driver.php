@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Driver\DriverController;
+use App\Http\Controllers\Api\V1\Driver\DriverLocationController;
 use App\Http\Controllers\Api\V1\Driver\RideController;
 use Illuminate\Support\Facades\Route;
+
+Route::put('location', [DriverLocationController::class, 'update'])->middleware('throttle:driver-location');
 
 Route::controller(RideController::class)->group(function () {
     Route::get('stats', 'stats');
@@ -22,4 +25,3 @@ Route::controller(DriverController::class)->group(function () {
     Route::get('profile', 'profile');
     Route::post('profile/update', 'update');
 });
-

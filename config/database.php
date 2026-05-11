@@ -141,6 +141,9 @@ return [
     | provides a richer body of commands than a typical key-value system
     | such as Memcached. You may define your connection settings here.
     |
+    | Optional: leave REDIS_* commented in .env until Redis exists; use
+    | QUEUE_CONNECTION=database and CACHE_STORE=database without Redis.
+    |
     */
 
     'redis' => [

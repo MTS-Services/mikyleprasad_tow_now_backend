@@ -24,6 +24,7 @@ class FindDriversRequest extends FormRequest
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
             'status' => ['sometimes', 'nullable', 'string', Rule::in(['Online', 'Offline', 'online', 'offline'])],
             'featured' => ['sometimes', 'nullable', 'string', Rule::in(['1', '0', 'true', 'false'])],
+            'lite' => ['sometimes', 'nullable', 'boolean'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ];

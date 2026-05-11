@@ -15,6 +15,11 @@ class DriverCardResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $lite = filter_var(
+            (string) ($request->header('X-Low-Bandwidth', $request->query('lite', '0'))),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
         $status = ($this->status?->value ?? $this->status) === AccountStatus::ACTIVE->value && ! $this->is_suspended
             ? 'Online'
             : 'Offline';
@@ -22,7 +27,7 @@ class DriverCardResource extends JsonResource
         $vehicleName = $this->vehicle?->name
             ?: trim(sprintf('%s %s', (string) ($this->vehicle?->brand ?? ''), (string) ($this->vehicle?->model ?? '')));
 
-        return [
+        $base = [
             'id' => $this->id,
             'initials' => $this->resolveInitials(),
             'name' => $this->name,
@@ -30,6 +35,23 @@ class DriverCardResource extends JsonResource
             'reviews' => 0,
             'location' => $this->address ?: 'Location unavailable',
             'status' => $status,
+            'phoneNumber' => $this->phone,
+            'avatar_url' => null,
+        ];
+
+        if ($lite) {
+            return $base + [
+                'responseTime' => 'N/A',
+                'pricing' => 'Contact',
+                'vehicle' => $vehicleName !== '' ? $vehicleName : 'Truck',
+                'licensePlate' => 'N/A',
+                'maxCapacity' => 'N/A',
+                'insurance' => 'N/A',
+                'experience' => 'N/A',
+            ];
+        }
+
+        return $base + [
             'responseTime' => 'N/A',
             'pricing' => 'Contact for price',
             'vehicle' => $vehicleName !== '' ? $vehicleName : 'Truck',
@@ -37,8 +59,6 @@ class DriverCardResource extends JsonResource
             'maxCapacity' => $this->vehicle?->capacity ?: 'N/A',
             'insurance' => strtoupper((string) ($this->vehicle?->insurance_status ?: 'N/A')),
             'experience' => 'N/A',
-            'phoneNumber' => $this->phone,
-            'avatar_url' => null,
         ];
     }
 

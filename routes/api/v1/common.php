@@ -23,6 +23,7 @@ Route::controller(ContactVerificationOtpController::class)->prefix('verification
 
 Route::controller(UserController::class)->group(function () {
     Route::get('/me', 'me');
+    Route::put('/fcm-token', 'updateFcmToken');
 });
 
 Route::get('/login-history', [LoginHistoryController::class, 'index']);
