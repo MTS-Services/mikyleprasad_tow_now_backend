@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureDriver;
+use App\Http\Middleware\PublicApiCacheHeaders;
 use App\Http\Middleware\EnsureUser;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.user' => EnsureUser::class,
             'role.driver' => EnsureDriver::class,
             'role.admin' => EnsureAdmin::class,
+            'public.cache' => PublicApiCacheHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

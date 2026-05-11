@@ -27,13 +27,13 @@ Route::controller(OtpAuthController::class)->prefix('otp')->group(function () {
 
 
 
-Route::get('/languages', [LanguageController::class, 'index']);
+Route::get('/languages', [LanguageController::class, 'index'])->middleware('public.cache');
 
-Route::get('/currencies', [CurrencyController::class, 'index']);
+Route::get('/currencies', [CurrencyController::class, 'index'])->middleware('public.cache');
 
-Route::get('/drivers/find', [DriverSearchController::class, 'index']);
-Route::get('/drivers/stats', [DriverSearchController::class, 'stats']);
-Route::get('/drivers/{id}', [DriverSearchController::class, 'show']);
+Route::get('/drivers/find', [DriverSearchController::class, 'index'])->middleware('public.cache');
+Route::get('/drivers/stats', [DriverSearchController::class, 'stats'])->middleware('public.cache');
+Route::get('/drivers/{id}', [DriverSearchController::class, 'show'])->middleware('public.cache');
 
-Route::get('/site-settings', [SiteSettingsController::class, 'index']);
+Route::get('/site-settings', [SiteSettingsController::class, 'index'])->middleware('public.cache');
 

@@ -26,10 +26,21 @@ class DriverService
     public function paginate(array $filters): LengthAwarePaginator
     {
         $query = User::query()
+            ->select([
+                'id',
+                'name',
+                'phone',
+                'address',
+                'status',
+                'is_suspended',
+                'is_featured',
+            ])
             ->where('role', UserRole::DRIVER->value)
             ->where('approval_status', ApprovalStatus::APPROVED->value)
             ->where('is_suspended', false)
-            // ->with('vehicle')
+            ->with([
+                'vehicle:id,user_id,name,brand,model,capacity,license_plate,insurance_status',
+            ])
             ->orderByDesc('id');
 
         $this->driverQueryFilters->apply($query, $filters);
