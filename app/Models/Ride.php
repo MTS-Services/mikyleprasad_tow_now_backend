@@ -107,4 +107,12 @@ class Ride extends Model
     {
         return $this->hasMany(RideHistory::class, 'ride_id')->orderByDesc('id');
     }
+    
+    /**
+     * @return HasOne<Review, $this>
+     */
+    public function review(): HasOne
+    {
+        return $this->hasOne(Review::class, 'ride_id');
+    }
 }
