@@ -31,7 +31,7 @@ class RideResource extends JsonResource
             'eta_reason' => $this->eta_reason,
             'cancel_reason' => $this->cancel_reason,
             'cancelled_by' => $this->cancelled_by?->value ?? $this->cancelled_by,
-            'conversation_id' => $this->whenLoaded('conversation', fn () => $this->conversation?->id),
+            'conversation_id' => $this->whenLoaded('conversation', fn() => $this->conversation?->id),
             'expires_at' => $this->expired_at?->toIso8601String(),
             'accepted_at' => $this->accepted_at?->toIso8601String(),
             'arrived_at' => $this->arrived_at?->toIso8601String(),
@@ -40,19 +40,19 @@ class RideResource extends JsonResource
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'total_estimated_arrival_minutes' => $this->when(
                 $this->status === RideStatusEnum::ACTIVE,
-                fn () => RideTimingPresenter::totalEstimatedArrivalMinutes($this->resource)
+                fn() => RideTimingPresenter::totalEstimatedArrivalMinutes($this->resource)
             ),
             'total_arrival_minutes' => $this->when(
                 in_array($this->status, [RideStatusEnum::ARRIVED, RideStatusEnum::COMPLETED_USER], true),
-                fn () => $this->total_arrival_minutes
+                fn() => $this->total_arrival_minutes
             ),
             'total_ride_minutes' => $this->when(
                 $this->status === RideStatusEnum::COMPLETED_USER,
-                fn () => $this->total_ride_minutes
+                fn() => $this->total_ride_minutes
             ),
             'timeline' => $this->whenLoaded(
                 'histories',
-                fn ($histories) => $histories->map(function ($history) {
+                fn($histories) => $histories->map(function ($history) {
                     return [
                         'id' => $history->id,
                         'actor_user_id' => $history->user_id,
@@ -69,17 +69,18 @@ class RideResource extends JsonResource
             ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'user' => $this->whenLoaded('user', fn () => [
+            'user' => $this->whenLoaded('user', fn() => [
                 'id' => $this->user?->id,
                 'name' => $this->user?->name,
                 'phone' => $this->user?->phone,
             ]),
-            'driver' => $this->whenLoaded('driver', fn () => [
+            'driver' => $this->whenLoaded('driver', fn() => [
                 'id' => $this->driver?->id,
                 'name' => $this->driver?->name,
                 'phone' => $this->driver?->phone,
                 'address' => $this->driver?->address,
             ]),
+            'review' => $this->whenLoaded('review', fn() => $this->review),
         ];
     }
 }

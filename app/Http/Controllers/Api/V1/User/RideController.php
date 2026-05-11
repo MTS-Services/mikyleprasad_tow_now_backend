@@ -129,7 +129,7 @@ class RideController extends Controller
                 'customQuery' => [
                     'status' => ['operator' => '!=', 'value' => RideStatusEnum::SYSTEM_CANCELLED->value],
                 ],
-                'with' => ['driver', 'user', 'conversation', 'histories'],
+                'with' => ['driver', 'user', 'conversation', 'histories', 'review.user'],
             ]);
 
             return sendResponse(
