@@ -27,12 +27,17 @@ class DriverCardResource extends JsonResource
         $vehicleName = $this->vehicle?->name
             ?: trim(sprintf('%s %s', (string) ($this->vehicle?->brand ?? ''), (string) ($this->vehicle?->model ?? '')));
 
+        $reviews = $this->assignedRides
+            ->pluck('review')
+            ->filter();
+
+
         $base = [
             'id' => $this->id,
             'initials' => $this->resolveInitials(),
             'name' => $this->name,
             'rating' => 0,
-            'reviews' => 0,
+            'reviews' => $reviews->count(),
             'location' => $this->address ?: 'Location unavailable',
             'status' => $status,
             'phoneNumber' => $this->phone,
@@ -59,6 +64,15 @@ class DriverCardResource extends JsonResource
             'maxCapacity' => $this->vehicle?->capacity ?: 'N/A',
             'insurance' => strtoupper((string) ($this->vehicle?->insurance_status ?: 'N/A')),
             'experience' => 'N/A',
+
+            'review' => $reviews->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating,
+                    'body' => $review->body,
+                    'created_at' => $review->created_at?->diffForHumans(),
+                ];
+            })->values(),
         ];
     }
 
