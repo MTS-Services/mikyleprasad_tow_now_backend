@@ -118,7 +118,7 @@ class RideLifecycleService
     }
 
     /**
-     * @param  array{driver_id: int, pickup_location: string, dropoff_location: string, notes?: ?string}  $data
+     * @param  array<string, mixed>  $data
      */
     public function createRequest(User $user, array $data): Ride
     {
@@ -127,6 +127,18 @@ class RideLifecycleService
         }
 
         return DB::transaction(function () use ($user, $data): Ride {
+            if (! empty($data['offline_temp_id'])) {
+                $existing = Ride::query()
+                    ->where('user_id', $user->id)
+                    ->where('offline_temp_id', $data['offline_temp_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existing !== null) {
+                    return $existing->load(['user', 'driver', 'conversation', 'histories']);
+                }
+            }
+
             $driver = User::query()
                 ->whereKey($data['driver_id'])
                 ->where('role', UserRole::DRIVER->value)
@@ -177,6 +189,16 @@ class RideLifecycleService
                 'pickup_location' => $data['pickup_location'],
                 'dropoff_location' => $data['dropoff_location'],
                 'notes' => $data['notes'] ?? null,
+                'pickup_lat' => $data['pickup_lat'] ?? null,
+                'pickup_lng' => $data['pickup_lng'] ?? null,
+                'dropoff_lat' => $data['dropoff_lat'] ?? null,
+                'dropoff_lng' => $data['dropoff_lng'] ?? null,
+                'offline_temp_id' => $data['offline_temp_id'] ?? null,
+                'synced_from_offline' => (bool) ($data['synced_from_offline'] ?? false),
+                'problem_type' => $data['problem_type'] ?? null,
+                'problem_description' => $data['problem_description'] ?? null,
+                'estimated_price' => $data['estimated_price'] ?? null,
+                'payment_status' => $data['payment_status'] ?? null,
                 'expired_at' => now()->addMinutes((int) config('rides.request_expire_minutes', 10)),
             ]);
 

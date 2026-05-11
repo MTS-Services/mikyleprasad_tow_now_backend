@@ -29,9 +29,21 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'expired_at',
     'accepted_at',
     'arrived_at',
+    'picked_up_at',
     'completion_requested_at',
     'completed_at',
     'cancelled_at',
+    'pickup_lat',
+    'pickup_lng',
+    'dropoff_lat',
+    'dropoff_lng',
+    'offline_temp_id',
+    'synced_from_offline',
+    'problem_type',
+    'problem_description',
+    'estimated_price',
+    'final_price',
+    'payment_status',
 ])]
 
 class Ride extends Model
@@ -40,11 +52,19 @@ class Ride extends Model
         'expired_at' => 'datetime',
         'accepted_at' => 'datetime',
         'arrived_at' => 'datetime',
+        'picked_up_at' => 'datetime',
         'completion_requested_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'cancelled_by' => RideCancelledByEnum::class,
         'status' => RideStatusEnum::class,
+        'pickup_lat' => 'float',
+        'pickup_lng' => 'float',
+        'dropoff_lat' => 'float',
+        'dropoff_lng' => 'float',
+        'synced_from_offline' => 'bool',
+        'estimated_price' => 'float',
+        'final_price' => 'float',
     ];
 
     protected static function booted(): void

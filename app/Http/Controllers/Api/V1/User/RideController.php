@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1\User;
 use App\Enums\RideStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Ride\CancelRideRequest;
+use App\Http\Requests\Api\V1\Ride\OfflineSyncRidesRequest;
 use App\Http\Requests\Api\V1\Ride\StoreRideRequest;
 use App\Http\Resources\Api\V1\RideResource;
+use App\Http\Resources\Api\V1\RideTrackResource;
 use App\Models\Ride;
 use App\Services\RideLifecycleService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
@@ -100,6 +103,68 @@ class RideController extends Controller
                 statusCode: $e->getStatusCode()
             );
         }
+    }
+
+    public function track(Request $request, string $id): JsonResponse
+    {
+        try {
+            $ride = Ride::query()
+                ->whereKey($id)
+                ->where('user_id', $request->user()->id)
+                ->with(['driver' => function ($query): void {
+                    $query->select(['id', 'name', 'phone', 'current_lat', 'current_lng', 'location_updated_at']);
+                }])
+                ->select(['id', 'status', 'updated_at', 'driver_id', 'user_id'])
+                ->firstOrFail();
+
+            return response()
+                ->json([
+                    'success' => true,
+                    'message' => 'Ride track fetched successfully.',
+                    'data' => (new RideTrackResource($ride))->resolve($request),
+                ], HttpStatus::HTTP_OK)
+                ->withHeaders([
+                    'Cache-Control' => 'no-cache, must-revalidate',
+                ]);
+        } catch (ModelNotFoundException $e) {
+            return sendResponse(
+                status: false,
+                message: 'Ride not found.',
+                data: null,
+                statusCode: HttpStatus::HTTP_NOT_FOUND
+            );
+        }
+    }
+
+    public function offlineSync(OfflineSyncRidesRequest $request): JsonResponse
+    {
+        $results = [];
+
+        foreach ($request->validated()['rides'] as $payload) {
+            $row = array_merge($payload, ['synced_from_offline' => true]);
+
+            try {
+                $ride = $this->rideLifecycleService->createRequest($request->user(), $row);
+                $results[] = [
+                    'offline_temp_id' => $payload['offline_temp_id'],
+                    'success' => true,
+                    'ride' => (new RideResource($ride))->resolve($request),
+                ];
+            } catch (\Throwable $e) {
+                $results[] = [
+                    'offline_temp_id' => $payload['offline_temp_id'],
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return sendResponse(
+            status: true,
+            message: 'Offline sync processed.',
+            data: ['results' => $results],
+            statusCode: HttpStatus::HTTP_OK
+        );
     }
 
     public function active(Request $request): JsonResponse
