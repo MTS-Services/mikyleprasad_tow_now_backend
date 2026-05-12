@@ -31,6 +31,15 @@ class DriverCardResource extends JsonResource
             ->pluck('review')
             ->filter();
 
+        // Calculate ride statistics
+        $totalRides = $this->assignedRides->count();
+        $completedRides = $this->assignedRides->filter(function ($ride) {
+            return $ride->status?->isCompleted() ?? false;
+        })->count();
+        $cancelledRides = $this->assignedRides->filter(function ($ride) {
+            return $ride->status?->isCancelled() ?? false;
+        })->count();
+
 
         $base = [
             'id' => $this->id,
@@ -42,6 +51,9 @@ class DriverCardResource extends JsonResource
             'status' => $status,
             'phoneNumber' => $this->phone,
             'avatar_url' => null,
+            'totalRides' => $totalRides,
+            'completedRides' => $completedRides,
+            'canceledRides' => $cancelledRides,
         ];
 
         if ($lite) {
@@ -64,6 +76,7 @@ class DriverCardResource extends JsonResource
             'maxCapacity' => $this->vehicle?->capacity ?: 'N/A',
             'insurance' => strtoupper((string) ($this->vehicle?->insurance_status ?: 'N/A')),
             'experience' => 'N/A',
+            'truck_image' => $this->vehicle?->truck_image,
 
             'review' => $reviews->map(function ($review) {
                 return [
@@ -71,6 +84,10 @@ class DriverCardResource extends JsonResource
                     'rating' => $review->rating,
                     'body' => $review->body,
                     'created_at' => $review->created_at?->diffForHumans(),
+                    'user' => [
+                        'name' => $review->user?->name,
+                        'avatar_url' => $review->user?->avatar_url,
+                    ],
                 ];
             })->values(),
         ];
