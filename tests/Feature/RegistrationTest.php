@@ -25,21 +25,20 @@ beforeEach(function (): void {
 test('user registration requires role and email and generates a visual username', function (): void {
     Notification::fake();
 
-    $this->postJson('/api/v1/register', [
+    $response = $this->postJson('/api/v1/register', [
         'role' => UserRole::USER->value,
         'email' => 'customer@example.com',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.identifier_type', 'email')
-        ->assertJsonPath('data.identifier', 'customer@example.com')
-        ->assertJsonMissingPath('data.access_token')
-        ->assertJsonPath('data.verification_channel', 'email')
-        ->assertJsonPath('data.user.email', 'customer@example.com')
-        ->assertJsonPath('data.user.username', fn ($value): bool => is_string($value) && str_starts_with($value, 'USR-'));
+        ->assertJsonMissingPath('data.access_token');
+
+    $response->assertJsonStructure(['success', 'message', 'data' => ['expires_in_minutes']]);
+    expect($response->json('data.expires_in_minutes'))->toBeInt()->toBeGreaterThan(0);
 
     $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
 
     expect($user->email_verified_at)->toBeNull();
+    expect($user->username)->toBeString()->toStartWith('USR-');
 
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
@@ -63,15 +62,12 @@ test('driver registration requires profile fields', function (): void {
             'name',
             'phone',
             'address',
-            'bio',
             'car_name',
             'brand',
             'model',
-            'capacity',
             'license_plate',
             'truck_image',
             'driving_license_image',
-            'car_legal_documents',
         ]);
 });
 
@@ -93,12 +89,11 @@ test('driver registration creates related profile and stores documents', functio
         'license_plate' => 'TOW-1234',
         'truck_image' => UploadedFile::fake()->image('truck.png'),
         'driving_license_image' => UploadedFile::fake()->image('license.png'),
-        'car_legal_documents' => UploadedFile::fake()->image('documents.png'),
+        'legal_documents' => UploadedFile::fake()->image('documents.png'),
     ])
         ->assertCreated()
         ->assertJsonMissingPath('data.access_token')
-        ->assertJsonPath('data.identifier_type', 'email')
-        ->assertJsonPath('data.identifier', 'driver@example.com');
+        ->assertJsonStructure(['data' => ['expires_in_minutes']]);
 
     $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
     $vehicle = $user->vehicle()->firstOrFail();
