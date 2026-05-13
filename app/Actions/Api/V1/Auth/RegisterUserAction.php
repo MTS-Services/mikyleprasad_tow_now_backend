@@ -197,8 +197,11 @@ class RegisterUserAction
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
-            'car_legal_documents' => [
+            'legal_documents' => [
+                // Optional — restore required_if driver to require uploads again:
+                // 'required_if:role,'.UserRole::DRIVER->value,
                 'sometimes',
+                'nullable',
                 'file',
                 'mimes:jpg,jpeg,png,webp,pdf,doc,docx',
                 'max:5120',
@@ -348,7 +351,9 @@ class RegisterUserAction
                     'license_plate' => $validated['license_plate'],
                     'truck_image' => $request->file('truck_image')->store('driver-profiles/trucks', 'public'),
                     'driving_license_image' => $request->file('driving_license_image')->store('driver-profiles/licenses', 'public'),
-                    'legal_documents' => $request->file('legal_documents')->store('driver-profiles/documents', 'public'),
+                    'legal_documents' => $request->hasFile('legal_documents') && $request->file('legal_documents')->isValid()
+                        ? $request->file('legal_documents')->store('driver-profiles/documents', 'public')
+                        : null,
                     'insurance_status' => false,
                 ]);
             }
