@@ -64,8 +64,10 @@ class DriverSearchController extends Controller
                 ->where('role', 'driver')
                 ->where('approval_status', ApprovalStatus::APPROVED->value)
                 ->where('is_suspended', false)
-                ->with('vehicle')
+                ->with('vehicle', 'assignedRides.review.user')
                 ->first();
+
+            // dd($driver);
 
             if (! $driver) {
                 return null;
