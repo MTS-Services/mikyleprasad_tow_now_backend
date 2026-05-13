@@ -24,7 +24,9 @@ final class DispatchFcmOnUserNotificationCreated
         $data = $notification->data ?? [];
         $data['notification_type'] = $notification->type;
 
-        SendPushNotification::dispatch(
+        // Dispatch synchronously so device push does not depend on a separate
+        // notifications queue worker being alive.
+        SendPushNotification::dispatchSync(
             $recipient,
             (string) ($notification->title ?? ''),
             (string) ($notification->body ?? ''),
