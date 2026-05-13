@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Enums\ApprovalStatus;
 use App\Enums\RideStatusEnum;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -95,32 +96,23 @@ class AdminPortalController extends Controller
         return sendResponse(true, 'Ride fetched successfully.', new RideResource($ride), HttpStatus::HTTP_OK);
     }
 
-    public function drivers(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'q' => ['sometimes', 'string'],
-            'status' => ['sometimes', 'string'],
-            'approval_status' => ['sometimes', 'string'],
-            'is_suspended' => ['sometimes', 'boolean'],
-            'is_featured' => ['sometimes', 'boolean'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-        ]);
-
-        $filters = [
-            ...$validated,
-            'featured' => $validated['is_featured'] ?? null,
-        ];
-
-        $drivers = $this->driverService->paginate($filters);
-
-        return sendResponse(
-            true,
-            'Admin drivers fetched successfully.',
-            UserResource::collection($drivers),
-            HttpStatus::HTTP_OK
-        );
-    }
-
+public function drivers(Request $request): JsonResponse
+{
+    $validated = $request->validate([
+        'tab'      => ['sometimes', 'string', 'in:pending,all,suspended,featured_drivers,rejected'],
+        'q'        => ['sometimes', 'string'],
+        'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+    ]);
+ 
+    $drivers = $this->driverService->paginate($validated);
+ 
+    return sendResponse(
+        true,
+        'Admin drivers fetched successfully.',
+        UserResource::collection($drivers),
+        HttpStatus::HTTP_OK
+    );
+}
     public function acceptDriver(User $driver): JsonResponse
     {
         $this->driverService->acceptDriver($driver->id);
