@@ -57,11 +57,14 @@ class AdminDriverDetailResource extends JsonResource
             'vehicle' => $this->vehicle ? [
                 'id'            => $this->vehicle->id,
                 'name'          => $this->vehicle->name,
+                'model'         => $this->vehicle->model,
+                'brand'         => $this->vehicle->brand,
                 'license_plate' => $this->vehicle->license_plate,
                 'capacity'      => $this->vehicle->capacity,
 
-                'driving_license_image' => $this->when($isPending, $this->vehicle->driving_license_image),
-                'legal_documents'       => $this->when($isPending, $this->vehicle->legal_documents),
+                'truck_image' => $this->vehicle->truck_image,
+                'driving_license_image' => $this->vehicle->driving_license_image,
+                'legal_documents'       => $this->vehicle->legal_documents,
             ] : null,
         ];
     }

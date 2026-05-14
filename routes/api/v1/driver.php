@@ -24,4 +24,5 @@ Route::controller(RideController::class)->group(function () {
 Route::controller(DriverController::class)->group(function () {
     Route::get('profile', 'profile');
     Route::post('profile/update', 'update');
+    Route::post('profile/update-vehicle', 'updateVehicle');
 });
