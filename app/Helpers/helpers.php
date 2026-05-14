@@ -55,3 +55,19 @@ if (! function_exists('storage_url')) {
         return Storage::disk('public')->url($trimmed);
     }
 }
+
+if (! function_exists('fcm_send_result_message_id')) {
+    /**
+     * Normalize Kreait {@see \Kreait\Firebase\Messaging::send()} return value (FCM HTTP v1 JSON body) to a string for logs and UI.
+     *
+     * @param  array<string, mixed>  $result
+     */
+    function fcm_send_result_message_id(array $result): string
+    {
+        if (isset($result['name']) && is_scalar($result['name'])) {
+            return (string) $result['name'];
+        }
+
+        return json_encode($result, JSON_THROW_ON_ERROR);
+    }
+}

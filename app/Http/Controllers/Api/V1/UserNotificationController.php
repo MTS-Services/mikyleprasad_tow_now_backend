@@ -10,6 +10,10 @@ use App\Services\UserNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Kreait\Firebase\Exception\Messaging\InvalidMessage;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -102,8 +106,6 @@ class UserNotificationController extends Controller
         );
     }
 
-
-
     public function markAsUnread(Request $request, int $id): JsonResponse
     {
         $notification = $this->findOwnedNotification($request->user(), $id);
@@ -150,7 +152,6 @@ class UserNotificationController extends Controller
         }
     }
 
-
     public function destroy(Request $request, int $id): JsonResponse
     {
         $notification = UserNotification::query()
@@ -175,6 +176,7 @@ class UserNotificationController extends Controller
             statusCode: HttpStatus::HTTP_OK
         );
     }
+
     /**
      * Local / testing only: create a notification for the current user and broadcast it (verify in Pusher Debug Console).
      */
@@ -223,6 +225,63 @@ class UserNotificationController extends Controller
                 message: $e->getMessage(),
                 data: null,
                 statusCode: $e->getStatusCode()
+            );
+        }
+    }
+
+    /**
+     * Local / testing only: send a raw FCM data+notification message to an arbitrary device token (via server SDK).
+     */
+    public function sendTestPushToToken(Request $request): JsonResponse
+    {
+        abort_unless($this->testNotificationRouteEnabled(), HttpStatus::HTTP_NOT_FOUND);
+
+        $validated = $request->validate([
+            'fcm_token' => ['required', 'string', 'min:10', 'max:4096'],
+            'title' => ['sometimes', 'string', 'max:255'],
+            'body' => ['sometimes', 'string', 'max:2000'],
+        ]);
+
+        $token = trim($validated['fcm_token']);
+        $title = $validated['title'] ?? __('api.notification_test_push_default_title');
+        $body = $validated['body'] ?? __('api.notification_test_push_default_body');
+
+        $stringData = [
+            'source' => 'api_test_push_token',
+            'initiated_by_user_id' => (string) $request->user()->id,
+        ];
+
+        try {
+            $messaging = Firebase::messaging();
+
+            $message = CloudMessage::new()
+                ->withToken($token)
+                ->withNotification(Notification::create($title, $body))
+                ->withData($stringData);
+
+            $sendResult = $messaging->send($message);
+
+            return sendResponse(
+                status: true,
+                message: __('api.notification_test_push_sent'),
+                data: ['fcm_message_id' => fcm_send_result_message_id($sendResult)],
+                statusCode: HttpStatus::HTTP_OK
+            );
+        } catch (InvalidMessage $e) {
+            return sendResponse(
+                status: false,
+                message: $e->getMessage(),
+                data: ['error' => 'invalid_message'],
+                statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return sendResponse(
+                status: false,
+                message: __('api.notification_test_push_failed'),
+                data: ['exception' => $e::class],
+                statusCode: HttpStatus::HTTP_BAD_GATEWAY
             );
         }
     }

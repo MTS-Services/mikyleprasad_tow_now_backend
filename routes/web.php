@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\Web\FcmTestPushViewController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/dev/fcm-test-push', [FcmTestPushViewController::class, 'create'])->name('dev.fcm-test-push');
+Route::post('/dev/fcm-test-push', [FcmTestPushViewController::class, 'store'])->name('dev.fcm-test-push.send');
 
 
 Route::get('/oauth/token-capture', function () {

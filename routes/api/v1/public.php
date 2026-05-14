@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\ContactQueryController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DriverSearchController;
 use App\Http\Controllers\Api\V1\LanguageController;
@@ -37,6 +36,4 @@ Route::get('/drivers/stats', [DriverSearchController::class, 'stats'])->middlewa
 Route::get('/drivers/{id}', [DriverSearchController::class, 'show'])->middleware('public.cache');
 
 Route::get('/site-settings', [SiteSettingsController::class, 'index'])->middleware('public.cache');
-
-Route::post('/contact-queries', [ContactQueryController::class, 'store'])->middleware('public.cache');
 
