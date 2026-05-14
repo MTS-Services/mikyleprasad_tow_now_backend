@@ -4,6 +4,8 @@ namespace App\Http\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection as SupportCollection;
+use Stripe\Collection;
 
 class UserResource extends JsonResource
 {
@@ -60,6 +62,16 @@ class UserResource extends JsonResource
             ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'requested_rides' => $this->when($this->role?->value === 'user', 
+               fn() => $this->whenLoaded('requestedRides', fn() => new RideResource( new SupportCollection($this->requestedRides)))
+            ),
+            'reviews' => $this->when($this->role?->value === 'user', 
+                fn() => [
+                    'average_rating' => $this->average_rating,
+                    'total_reviews' => $this->total_reviews,
+                    ''
+                ]
+            ),
         ];
     }
 }
