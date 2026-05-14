@@ -74,6 +74,14 @@ return [
 
     'notification_test_broadcast_hint' => 'Subscribe to your private notifications channel in Echo to see this event.',
 
+    'notification_test_push_default_title' => 'TowNow test push',
+
+    'notification_test_push_default_body' => 'Hello from the demo push sender.',
+
+    'notification_test_push_sent' => 'Test push sent successfully.',
+
+    'notification_test_push_failed' => 'Could not send test push. Check Firebase credentials and server logs.',
+
     'notification_dismissed' => 'Notification removed.',
 
     'notification_admin_new_registration_title' => 'New registration',

@@ -68,15 +68,16 @@ class SendPushNotification implements ShouldQueue
         try {
             $messaging = Firebase::messaging();
 
-            $message = CloudMessage::withTarget('token', $token)
+            $message = CloudMessage::new()
+                ->withToken($token)
                 ->withNotification(Notification::create($this->title, $this->body))
                 ->withData($stringData);
 
-            $messageId = $messaging->send($message);
+            $sendResult = $messaging->send($message);
 
             $log->forceFill([
                 'status' => 'sent',
-                'fcm_message_id' => $messageId,
+                'fcm_message_id' => fcm_send_result_message_id($sendResult),
                 'sent_at' => now(),
             ])->save();
         } catch (InvalidMessage $e) {
