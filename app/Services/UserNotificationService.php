@@ -38,6 +38,27 @@ class UserNotificationService
     }
 
     /**
+     * Persist and broadcast without opening a nested DB transaction.
+     * Use when the caller is already inside `DB::transaction` (e.g. ride lifecycle) to avoid savepoints and keep after-commit semantics clear.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function notifyWithinExistingTransaction(
+        User $recipient,
+        string $type,
+        ?string $title = null,
+        ?string $body = null,
+        array $data = [],
+        ?string $actionUrl = null,
+        ?User $sender = null,
+    ): UserNotification {
+        $notification = $this->persistRecord($recipient, $type, $title, $body, $data, $actionUrl, $sender);
+        UserNotificationCreated::dispatch($notification);
+
+        return $notification;
+    }
+
+    /**
      * Create and broadcast in one transaction (typical “send notification” flow).
      *
      * @param  array<string, mixed>  $data

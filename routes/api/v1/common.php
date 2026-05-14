@@ -44,6 +44,7 @@ Route::controller(UserNotificationController::class)->prefix('notifications')->g
     Route::get('/', 'index');
     Route::post('/read-all', 'markAllRead');
     Route::post('/test-broadcast', 'storeTest');
+    Route::post('/test-push-token', 'sendTestPushToToken');
     Route::post('/{id}/read', 'markAsRead');
     Route::post('/{id}/unread', 'markAsUnread');
     Route::get('/{id}', 'show');

@@ -8,12 +8,16 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class UserNotificationCreated implements ShouldBroadcast, ShouldDispatchAfterCommit
+class UserNotificationCreated implements ShouldBroadcast, ShouldDispatchAfterCommit, ShouldQueue
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    /** @var non-empty-string */
+    public string $queue = 'default';
 
     public function __construct(
         public UserNotification $notification

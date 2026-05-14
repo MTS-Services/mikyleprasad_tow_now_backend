@@ -2,12 +2,14 @@
 
 use App\Enums\ApprovalStatus;
 use App\Enums\RideStatusEnum;
+use App\Models\FcmNotificationLog;
 use App\Models\Ride;
 use App\Models\RideHistory;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 use Laravel\Passport\Passport;
 
 uses(RefreshDatabase::class);
@@ -318,6 +320,28 @@ test('arrived ride can be completed and admins receive notification', function (
 
     $admin = User::query()->where('email', 'admin-ride@dev.com')->firstOrFail();
     expect(UserNotification::query()->where('user_id', $admin->id)->where('type', 'ride.completed_admin')->exists())->toBeTrue();
+});
+
+test('ride create returns created when firebase messaging throws', function (): void {
+    $user = User::factory()->create(['fcm_token' => 'user-fcm-test-token']);
+    $driver = createApprovedDriver('driver-fcm-fail@dev.com');
+    $driver->forceFill(['fcm_token' => 'driver-fcm-test-token'])->save();
+
+    Firebase::shouldReceive('messaging')
+        ->atLeast()->once()
+        ->andThrow(new RuntimeException('simulated FCM failure'));
+
+    Passport::actingAs($user);
+
+    $this->postJson('/api/v1/user/rides', [
+        'driver_id' => $driver->id,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+    ])->assertCreated();
+
+    expect(Ride::query()->where('user_id', $user->id)->where('driver_id', $driver->id)->exists())->toBeTrue();
+    expect(UserNotification::query()->count())->toBe(2);
+    expect(FcmNotificationLog::query()->where('status', 'failed')->count())->toBeGreaterThanOrEqual(2);
 });
 
 test('user can dismiss own notification', function (): void {
