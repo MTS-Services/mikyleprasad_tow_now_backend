@@ -25,19 +25,25 @@ class DriverService
      */
     public function paginate(array $filters): LengthAwarePaginator
     {
+        $tab = $filters['tab'] ?? 'pending';
+
         $query = User::query()
             ->select([
                 'id',
                 'name',
+                'username',
+                'email',
                 'phone',
                 'address',
+                'approval_status',
                 'status',
                 'is_suspended',
                 'is_featured',
+                'role',
             ])
             ->where('role', UserRole::DRIVER->value)
-            ->where('approval_status', ApprovalStatus::APPROVED->value)
-            ->where('is_suspended', false)
+            ->where('approval_status', $this->resolveApprovalStatus($tab))
+            ->where('is_suspended', $tab === 'suspended')
             ->with([
                 'vehicle:id,user_id,name,brand,model,capacity,license_plate,insurance_status',
             ])
@@ -45,16 +51,26 @@ class DriverService
 
         $this->driverQueryFilters->apply($query, $filters);
 
-        $featured = filter_var((string) ($filters['featured'] ?? ''), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        if ($featured === true) {
+        if ($tab === 'featured_drivers') {
             $query->where('is_featured', true);
         }
 
-        $perPage = (int) ($filters['per_page'] ?? 15);
-
-        return $query->paginate($perPage)->withQueryString();
+        return $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
     }
 
+    // ── Private helpers ───────────────────────────────────────────────────────────
+
+    private function resolveApprovalStatus(string $tab): string
+    {
+        return match ($tab) {
+            'pending'          => ApprovalStatus::PENDING->value,
+            'rejected'         => ApprovalStatus::REJECTED->value,
+            'all',
+            'suspended',
+            'featured_drivers' => ApprovalStatus::APPROVED->value,
+            default            => ApprovalStatus::PENDING->value,
+        };
+    }
     public function find(int $id): ?User
     {
         return User::query()
@@ -159,7 +175,7 @@ class DriverService
 
     public function updateDriverProfile(int $driverId, array $data): ?User
     {
-        
+
         $driver = User::find($driverId);
 
         if (! $driver) {
