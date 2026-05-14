@@ -7,6 +7,7 @@ namespace App\Listeners;
 use App\Events\UserNotificationCreated;
 use App\Jobs\SendPushNotification;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Mirrors every {@see UserNotificationCreated} (Pusher/Echo) broadcast with an FCM device push when the user has a token.
@@ -24,13 +25,21 @@ final class DispatchFcmOnUserNotificationCreated
         $data = $notification->data ?? [];
         $data['notification_type'] = $notification->type;
 
-        // Dispatch synchronously so device push does not depend on a separate
-        // notifications queue worker being alive.
-        SendPushNotification::dispatchSync(
-            $recipient,
-            (string) ($notification->title ?? ''),
-            (string) ($notification->body ?? ''),
-            $data,
-        );
+        try {
+            SendPushNotification::dispatch(
+                $recipient,
+                (string) ($notification->title ?? ''),
+                (string) ($notification->body ?? ''),
+                $data,
+            );
+        } catch (\Throwable $e) {
+            Log::error('fcm.dispatch_failed', [
+                'notification_id' => $notification->id,
+                'recipient_id' => $recipient->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+            report($e);
+        }
     }
 }

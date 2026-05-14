@@ -214,7 +214,7 @@ class RideLifecycleService
             ]);
             $this->logRideHistory($ride, $user, RideHistoryTypeEnum::STATUS, null, RideStatusEnum::PENDING);
 
-            $this->userNotificationService->notify(
+            $this->userNotificationService->notifyWithinExistingTransaction(
                 recipient: $driver,
                 type: 'ride.requested',
                 title: 'New ride request',
@@ -226,7 +226,7 @@ class RideLifecycleService
                 sender: $user
             );
 
-            $this->userNotificationService->notify(
+            $this->userNotificationService->notifyWithinExistingTransaction(
                 recipient: $user,
                 type: 'ride.request_sent',
                 title: 'Ride request sent',
