@@ -25,6 +25,7 @@ class DriverSearchController extends Controller
     public function index(FindDriversRequest $request): JsonResponse
     {
         $filters = $request->validated();
+        $filters['tab'] = 'featured_drivers';
         $lowBandwidth = filter_var((string) $request->header('X-Low-Bandwidth', '0'), FILTER_VALIDATE_BOOLEAN);
         if ($lowBandwidth) {
             $filters['lite'] = true;
@@ -64,10 +65,8 @@ class DriverSearchController extends Controller
                 ->where('role', 'driver')
                 ->where('approval_status', ApprovalStatus::APPROVED->value)
                 ->where('is_suspended', false)
-                ->with('vehicle', 'assignedRides.review.user')
+                ->with('vehicle')
                 ->first();
-
-            // dd($driver);
 
             if (! $driver) {
                 return null;
