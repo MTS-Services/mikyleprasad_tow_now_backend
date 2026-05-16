@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\ApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FindDriversRequest;
 use App\Http\Resources\Api\V1\DriverCardResource;
-use App\Enums\ApprovalStatus;
 use App\Models\User;
 use App\Services\DriverService;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +25,9 @@ class DriverSearchController extends Controller
     public function index(FindDriversRequest $request): JsonResponse
     {
         $filters = $request->validated();
+        $filters['audience'] = 'public';
         $filters['tab'] ??= 'all';
+        $filters['sort'] ??= 'random';
         $lowBandwidth = filter_var((string) $request->header('X-Low-Bandwidth', '0'), FILTER_VALIDATE_BOOLEAN);
         if ($lowBandwidth) {
             $filters['lite'] = true;
