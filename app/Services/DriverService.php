@@ -11,6 +11,7 @@ use App\Models\Ride;
 use App\Models\User;
 use App\Support\Filters\DriverQueryFilters;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,11 +22,22 @@ class DriverService
     ) {}
 
     /**
-     * @param  array{q?: ?string, status?: ?string, featured?: string, per_page?: int}  $filters
+     * @param  array{
+     *     audience?: string,
+     *     tab?: string,
+     *     q?: ?string,
+     *     status?: ?string,
+     *     sort?: ?string,
+     *     seed?: ?string,
+     *     per_page?: int,
+     *     page?: int
+     * }  $filters
      */
     public function paginate(array $filters): LengthAwarePaginator
     {
-        $tab = $filters['tab'] ?? 'pending';
+        $audience = (string) ($filters['audience'] ?? 'admin');
+        $tab = (string) ($filters['tab'] ?? ($audience === 'public' ? 'all' : 'pending'));
+        $sort = (string) ($filters['sort'] ?? ($audience === 'public' ? 'random' : 'latest'));
 
         $query = User::query()
             ->select([
@@ -40,37 +52,109 @@ class DriverService
                 'is_suspended',
                 'is_featured',
                 'role',
+                'created_at',
             ])
             ->where('role', UserRole::DRIVER->value)
-            ->where('approval_status', $this->resolveApprovalStatus($tab))
-            ->where('is_suspended', $tab === 'suspended')
             ->with([
                 'vehicle:id,user_id,name,brand,model,capacity,license_plate,insurance_status',
-            ])
-            ->inRandomOrder();
+            ]);
 
+        $this->applyAudienceTab($query, $audience, $tab);
         $this->driverQueryFilters->apply($query, $filters);
-
-        if ($tab === 'featured_drivers') {
-            $query->where('is_featured', true);
-        }
+        $this->applySort($query, $audience, $sort, isset($filters['seed']) ? (string) $filters['seed'] : null);
 
         return $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────────
-
-    private function resolveApprovalStatus(string $tab): string
+    private function applyAudienceTab(Builder $query, string $audience, string $tab): void
     {
-        return match ($tab) {
-            'pending'          => ApprovalStatus::PENDING->value,
-            'rejected'         => ApprovalStatus::REJECTED->value,
-            'all',
-            'suspended',
-            'featured_drivers' => ApprovalStatus::APPROVED->value,
-            default            => ApprovalStatus::PENDING->value,
+        if ($audience === 'public') {
+            $query
+                ->where('approval_status', ApprovalStatus::APPROVED->value)
+                ->where('is_suspended', false);
+
+            if ($tab === 'featured_drivers') {
+                $query->where('is_featured', true);
+            }
+
+            return;
+        }
+
+        match ($tab) {
+            'pending' => $query
+                ->where('approval_status', ApprovalStatus::PENDING->value)
+                ->where('is_suspended', false),
+            'all' => $query
+                ->where('approval_status', ApprovalStatus::APPROVED->value)
+                ->where('is_suspended', false),
+            'featured_drivers' => $query
+                ->where('approval_status', ApprovalStatus::APPROVED->value)
+                ->where('is_suspended', false)
+                ->where('is_featured', true),
+            'suspended' => $query->where('is_suspended', true),
+            'rejected' => $query
+                ->where('approval_status', ApprovalStatus::REJECTED->value)
+                ->where('is_suspended', false),
+            default => $query
+                ->where('approval_status', ApprovalStatus::PENDING->value)
+                ->where('is_suspended', false),
         };
     }
+
+    private function applySort(Builder $query, string $audience, string $sort, ?string $seed): void
+    {
+        if ($audience === 'public') {
+            if ($sort === 'random') {
+                $this->applySeededRandomOrder($query, $seed);
+
+                return;
+            }
+
+            if ($sort === 'oldest') {
+                $query->orderBy('created_at')->orderBy('id');
+
+                return;
+            }
+
+            $query->orderByDesc('created_at')->orderByDesc('id');
+
+            return;
+        }
+
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at')->orderBy('id');
+
+            return;
+        }
+
+        $query->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    private function applySeededRandomOrder(Builder $query, ?string $seed): void
+    {
+        $driver = $query->getConnection()->getDriverName();
+
+        if ($seed !== null && $seed !== '') {
+            $seedInt = crc32($seed);
+
+            if ($driver === 'sqlite') {
+                $query->orderByRaw('((id * ?) % 2147483647)', [$seedInt]);
+            } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                $query->orderByRaw('RAND(?)', [$seedInt]);
+            } else {
+                $query->orderByRaw('md5(concat(id, ?))', [$seed]);
+            }
+
+            return;
+        }
+
+        if ($driver === 'sqlite') {
+            $query->orderByRaw('random()');
+        } else {
+            $query->inRandomOrder();
+        }
+    }
+
     public function find(int $id): ?User
     {
         return User::query()
@@ -161,11 +245,10 @@ class DriverService
         }
     }
 
-
-
     public function getDriverProfile(): ?User
     {
         $userId = auth()->id();
+
         return User::query()
             ->whereKey($userId)
             ->where('role', UserRole::DRIVER->value)

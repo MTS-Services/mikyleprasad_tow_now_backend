@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Enums\ApprovalStatus;
 use App\Enums\RideStatusEnum;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\V1\AdminDriverDetailResource;
 use App\Http\Resources\Api\V1\ReviewResource;
 use App\Http\Resources\Api\V1\RideResource;
 use App\Http\Resources\Api\V1\UserResource;
@@ -21,9 +19,7 @@ use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminPortalController extends Controller
 {
@@ -104,10 +100,16 @@ class AdminPortalController extends Controller
     public function drivers(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'tab'      => ['sometimes', 'string', 'in:pending,all,suspended,featured_drivers,rejected'],
-            'q'        => ['sometimes', 'string'],
+            'tab' => ['sometimes', 'string', 'in:pending,all,suspended,featured_drivers,rejected'],
+            'q' => ['sometimes', 'string'],
+            'sort' => ['sometimes', 'string', 'in:latest,oldest'],
+            'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
+
+        $validated['audience'] = 'admin';
+        $validated['tab'] ??= 'pending';
+        $validated['sort'] ??= 'latest';
 
         $drivers = $this->driverService->paginate($validated);
 
@@ -118,6 +120,7 @@ class AdminPortalController extends Controller
             HttpStatus::HTTP_OK
         );
     }
+
     public function acceptDriver(User $driver): JsonResponse
     {
         $this->driverService->acceptDriver($driver->id);
