@@ -22,6 +22,7 @@ class RideTrackResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'uuid' => $this->uuid,
             'status' => $this->status?->value ?? $this->status,
             'updated_at' => $this->updated_at?->toIso8601String(),
             'driver' => $this->whenLoaded('driver', fn () => [

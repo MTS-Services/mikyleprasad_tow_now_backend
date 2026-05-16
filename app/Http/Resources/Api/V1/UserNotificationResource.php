@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Support\Time\TimezoneFormatter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,9 +23,9 @@ class UserNotificationResource extends JsonResource
             'body' => $this->body,
             'data' => $this->data,
             'action_url' => $this->action_url,
-            'read_at' => TimezoneFormatter::format($this->read_at),
-            'created_at' => TimezoneFormatter::format($this->created_at),
-            'updated_at' => TimezoneFormatter::format($this->updated_at),
+            'read_at' => $this->read_at?->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
             'sender' => $this->whenLoaded('sender', fn () => [
                 'id' => $this->sender->id,
                 'name' => $this->sender->name,

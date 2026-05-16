@@ -12,6 +12,7 @@ Route::controller(RideController::class)->group(function () {
     Route::prefix('rides')->group(function () {
         Route::get('/', 'index');
         Route::get('/incoming', 'incoming');
+        Route::get('/active', 'activeRide');
         Route::post('/{ride}/accept', 'accept');
         Route::post('/{ride}/eta', 'updateEta');
         Route::post('/{ride}/arrived', 'markArrived');

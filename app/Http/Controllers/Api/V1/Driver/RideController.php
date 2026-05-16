@@ -107,11 +107,11 @@ class RideController extends Controller
         }
     }
 
-    public function show(Request $request, string $id): JsonResponse
+    public function show(Request $request, string $ride): JsonResponse
     {
         try {
-            $ride = $this->rideLifecycleService->getRide([
-                'value' => $id,
+            $rideModel = $this->rideLifecycleService->getRide([
+                'value' => $ride,
                 'column' => 'id',
                 'customQuery' => [
                     'driver_id' => $request->user()->id,
@@ -123,7 +123,7 @@ class RideController extends Controller
             return sendResponse(
                 status: true,
                 message: 'Ride fetched successfully.',
-                data: new RideResource($ride),
+                data: new RideResource($rideModel),
                 statusCode: HttpStatus::HTTP_OK
             );
         } catch (HttpException $e) {
@@ -252,5 +252,22 @@ class RideController extends Controller
             ],
             default => [RideStatusEnum::PENDING->value],
         };
+    }
+
+    public function activeRide(Request $request): JsonResponse
+    {
+        $ride = Ride::query()
+            ->where('driver_id', $request->user()->id)
+            ->whereIn('status', RideStatusEnum::inProgressRideStatuses())
+            ->with(['driver', 'user', 'conversation', 'histories'])
+            ->latest('id')
+            ->first();
+
+        return sendResponse(
+            status: true,
+            message: 'Active ride fetched successfully.',
+            data: $ride ? new RideResource($ride) : null,
+            statusCode: HttpStatus::HTTP_OK
+        );
     }
 }

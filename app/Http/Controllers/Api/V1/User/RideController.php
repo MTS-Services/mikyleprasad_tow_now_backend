@@ -105,23 +105,23 @@ class RideController extends Controller
         }
     }
 
-    public function track(Request $request, string $id): JsonResponse
+    public function track(Request $request, string $ride): JsonResponse
     {
         try {
-            $ride = Ride::query()
-                ->whereKey($id)
+            $model = Ride::query()
+                ->whereIdOrUuid($ride)
                 ->where('user_id', $request->user()->id)
                 ->with(['driver' => function ($query): void {
                     $query->select(['id', 'name', 'phone', 'current_lat', 'current_lng', 'location_updated_at']);
                 }])
-                ->select(['id', 'status', 'updated_at', 'driver_id', 'user_id'])
+                ->select(['id', 'uuid', 'status', 'updated_at', 'driver_id', 'user_id'])
                 ->firstOrFail();
 
             return response()
                 ->json([
                     'success' => true,
                     'message' => 'Ride track fetched successfully.',
-                    'data' => (new RideTrackResource($ride))->resolve($request),
+                    'data' => (new RideTrackResource($model))->resolve($request),
                 ], HttpStatus::HTTP_OK)
                 ->withHeaders([
                     'Cache-Control' => 'no-cache, must-revalidate',
@@ -184,11 +184,11 @@ class RideController extends Controller
         );
     }
 
-    public function show(Request $request, string $id): JsonResponse
+    public function show(Request $request, string $ride): JsonResponse
     {
         try {
-            $ride = $this->rideLifecycleService->getRide([
-                'value' => $id,
+            $rideModel = $this->rideLifecycleService->getRide([
+                'value' => $ride,
                 'column' => 'id',
                 'filters' => ['user_id' => $request->user()->id],
                 'customQuery' => [
@@ -200,7 +200,7 @@ class RideController extends Controller
             return sendResponse(
                 status: true,
                 message: 'Ride details fetched successfully.',
-                data: new RideResource($ride),
+                data: new RideResource($rideModel),
                 statusCode: HttpStatus::HTTP_OK
             );
         } catch (HttpException $e) {
