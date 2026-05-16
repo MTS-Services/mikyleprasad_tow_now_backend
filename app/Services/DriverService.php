@@ -47,7 +47,7 @@ class DriverService
             ->with([
                 'vehicle:id,user_id,name,brand,model,capacity,license_plate,insurance_status',
             ])
-            ->orderByDesc('id');
+            ->inRandomOrder();
 
         $this->driverQueryFilters->apply($query, $filters);
 
