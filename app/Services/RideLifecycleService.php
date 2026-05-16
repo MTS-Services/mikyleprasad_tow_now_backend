@@ -15,6 +15,7 @@ use App\Models\Ride;
 use App\Models\RideHistory;
 use App\Models\User;
 use App\Support\Filters\RideQueryFilters;
+use App\Support\Ride\RideFcmPayload;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -74,6 +75,9 @@ class RideLifecycleService
     {
         $value = (string) ($params['value'] ?? '');
         $column = (string) ($params['column'] ?? 'id');
+        if ($column === 'id') {
+            $column = ($value !== '' && ctype_digit($value)) ? 'id' : 'uuid';
+        }
         $filters = (array) ($params['filters'] ?? []);
         $customQuery = (array) ($params['customQuery'] ?? []);
         $with = (array) ($params['with'] ?? []);
@@ -219,10 +223,9 @@ class RideLifecycleService
                 type: 'ride.requested',
                 title: 'New ride request',
                 body: "{$user->name} sent you a ride request.",
-                data: [
-                    'ride_id' => $ride->id,
+                data: RideFcmPayload::merge($ride, 'new_ride_request', '/driver-app/rides/detail/'.$ride->id, [
                     'conversation_id' => $conversation->id,
-                ],
+                ]),
                 sender: $user
             );
 
@@ -231,10 +234,9 @@ class RideLifecycleService
                 type: 'ride.request_sent',
                 title: 'Ride request sent',
                 body: 'Your ride request was sent to the driver.',
-                data: [
-                    'ride_id' => $ride->id,
+                data: RideFcmPayload::merge($ride, 'ride_request_sent', '/request-waiting?rideId='.$ride->id, [
                     'conversation_id' => $conversation->id,
-                ],
+                ]),
                 sender: null
             );
 
@@ -273,7 +275,7 @@ class RideLifecycleService
                 type: 'ride.cancelled_by_user',
                 title: 'Ride cancelled',
                 body: "{$ride->user->name} cancelled the ride request.",
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'ride_cancelled_by_user', '/driver-app/rides/pending'),
                 sender: $user
             );
 
@@ -312,7 +314,7 @@ class RideLifecycleService
                 type: 'ride.cancelled_by_driver',
                 title: 'Ride cancelled',
                 body: "{$ride->driver->name} cancelled the ride.",
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'ride_cancelled_by_driver', '/rides'),
                 sender: $driver
             );
 
@@ -377,11 +379,10 @@ class RideLifecycleService
                 type: 'ride.accepted',
                 title: 'Ride accepted',
                 body: "{$driver->name} accepted your ride request.",
-                data: [
-                    'ride_id' => $ride->id,
-                    'eta_minutes' => $etaMinutes,
-                    'conversation_id' => $ride->conversation?->id,
-                ],
+                data: RideFcmPayload::merge($ride, 'ride_accepted', '/rides/'.$ride->id.'/live', [
+                    'eta_minutes' => (string) $etaMinutes,
+                    'conversation_id' => (string) ($ride->conversation?->id ?? ''),
+                ]),
                 sender: $driver
             );
 
@@ -418,11 +419,10 @@ class RideLifecycleService
                 type: 'ride.eta_updated',
                 title: 'ETA updated',
                 body: "{$driver->name} updated the arrival estimate.",
-                data: [
-                    'ride_id' => $ride->id,
-                    'eta_minutes' => $etaMinutes,
+                data: RideFcmPayload::merge($ride, 'ride_eta_updated', '/rides/'.$ride->id.'/live', [
+                    'eta_minutes' => (string) $etaMinutes,
                     'reason' => $reason,
-                ],
+                ]),
                 sender: $driver
             );
 
@@ -472,7 +472,7 @@ class RideLifecycleService
                 type: 'ride.arrived',
                 title: 'Driver arrived',
                 body: 'The ride was marked as arrived at the pickup location.',
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'driver_arrived', '/rides/'.$ride->id.'/live'),
                 sender: $actor
             );
 
@@ -481,7 +481,7 @@ class RideLifecycleService
                 type: 'ride.arrived',
                 title: 'Driver arrived',
                 body: 'The ride was marked as arrived at the pickup location.',
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'driver_arrived', '/driver-app/rides/active'),
                 sender: $actor
             );
 
@@ -520,7 +520,7 @@ class RideLifecycleService
                 type: 'ride.completed',
                 title: 'Ride completed',
                 body: "{$user->name} marked the ride as completed.",
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'ride_completed', '/driver-app/rides/completed'),
                 sender: $user
             );
 
@@ -561,7 +561,7 @@ class RideLifecycleService
                 type: 'ride.completed',
                 title: 'Ride completed',
                 body: "{$driver->name} marked the ride as completed.",
-                data: ['ride_id' => $ride->id],
+                data: RideFcmPayload::merge($ride, 'ride_completed', '/rides/'.$ride->id),
                 sender: $driver
             );
 
@@ -592,6 +592,17 @@ class RideLifecycleService
                 $this->logRideHistory($ride, null, RideHistoryTypeEnum::STATUS, RideStatusEnum::PENDING, RideStatusEnum::EXPIRED, 'expired');
                 $this->logConversationActivity($ride->conversation, null, 'ride.expired');
             });
+
+            if ($ride->relationLoaded('user') && $ride->user !== null) {
+                $this->userNotificationService->notify(
+                    recipient: $ride->user,
+                    type: 'ride.expired',
+                    title: 'Request expired',
+                    body: 'No driver accepted your request in time. Please try again.',
+                    data: RideFcmPayload::merge($ride, 'no_driver_found', '/rides'),
+                    sender: null
+                );
+            }
         }
 
         return $rides->count();

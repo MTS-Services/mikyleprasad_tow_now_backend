@@ -344,6 +344,49 @@ test('ride create returns created when firebase messaging throws', function (): 
     expect(FcmNotificationLog::query()->where('status', 'failed')->count())->toBeGreaterThanOrEqual(2);
 });
 
+test('user ride track and status endpoints resolve by uuid', function (): void {
+    $user = User::factory()->create();
+    $driver = createApprovedDriver('driver-uuid-track@dev.com');
+
+    Passport::actingAs($user);
+    $this->postJson('/api/v1/user/rides', [
+        'driver_id' => $driver->id,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+    ])->assertCreated();
+
+    $ride = Ride::query()->where('user_id', $user->id)->firstOrFail();
+    expect($ride->uuid)->not->toBe('');
+
+    $this->getJson("/api/v1/user/rides/{$ride->uuid}/track")
+        ->assertOk()
+        ->assertJsonPath('data.uuid', $ride->uuid);
+
+    $this->getJson("/api/v1/user/rides/{$ride->uuid}/status")
+        ->assertOk()
+        ->assertJsonPath('data.uuid', $ride->uuid);
+});
+
+test('driver rides active returns in-progress ride for driver', function (): void {
+    $user = User::factory()->create();
+    $driver = createApprovedDriver('driver-active-endpoint@dev.com');
+
+    $active = Ride::query()->create([
+        'user_id' => $user->id,
+        'driver_id' => $driver->id,
+        'status' => RideStatusEnum::ACTIVE->value,
+        'pickup_location' => 'A',
+        'dropoff_location' => 'B',
+        'accepted_at' => now(),
+    ]);
+
+    Passport::actingAs($driver);
+    $this->getJson('/api/v1/driver/rides/active')
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.id', $active->id);
+});
+
 test('user can dismiss own notification', function (): void {
     $user = User::factory()->create();
 

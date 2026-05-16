@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\RideCancelledByEnum;
 use App\Enums\RideStatusEnum;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -77,6 +78,34 @@ class Ride extends Model
     }
 
     /**
+     * Resolve API route keys: numeric primary key, RFC UUID, or app ride `uuid` (e.g. UD-…).
+     *
+     * @param  Builder<Ride>  $query
+     * @return Builder<Ride>
+     */
+    public function scopeWhereIdOrUuid(Builder $query, string $value): Builder
+    {
+        if ($value !== '' && ctype_digit($value)) {
+            return $query->whereKey((int) $value);
+        }
+
+        return $query->where('uuid', $value);
+    }
+
+    /**
+     * @param  mixed  $value
+     * @param  string|null  $field
+     */
+    public function resolveRouteBinding($value, $field = null): ?static
+    {
+        if ($field !== null) {
+            return parent::resolveRouteBinding($value, $field);
+        }
+
+        return static::query()->whereIdOrUuid((string) $value)->first();
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
@@ -107,7 +136,7 @@ class Ride extends Model
     {
         return $this->hasMany(RideHistory::class, 'ride_id')->orderByDesc('id');
     }
-    
+
     /**
      * @return HasOne<Review, $this>
      */
