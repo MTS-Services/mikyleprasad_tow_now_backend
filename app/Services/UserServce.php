@@ -108,4 +108,68 @@ class UserServce
             Storage::disk('public')->delete($avatarPath);
         }
     }
+
+    public function updateVehicle(Request $request, array $data)
+    {
+        $driver = User::query()
+            ->whereKey($request->user()->id)
+            ->first();
+
+        if (! $driver) {
+            return null;
+        }
+
+        if (! $driver->vehicle) {
+            return null;
+        }
+
+        $truckImagePath = null;
+        if (isset($data['truck_image']) && $data['truck_image'] instanceof UploadedFile) {
+            $this->deleteVehicleFile($driver->vehicle->truck_image);
+            $truckImagePath = $this->storeVehicleFile($data['truck_image'], $driver->id, 'truck_images');
+        }
+
+        $drivingLicensePath = null;
+        if (isset($data['driving_license_image']) && $data['driving_license_image'] instanceof UploadedFile) {
+            $this->deleteVehicleFile($driver->vehicle->driving_license_image);
+            $drivingLicensePath = $this->storeVehicleFile($data['driving_license_image'], $driver->id, 'driving_licenses');
+        }
+
+        $legalDocumentsPath = null;
+        if (isset($data['legal_documents']) && $data['legal_documents'] instanceof UploadedFile) {
+            $this->deleteVehicleFile($driver->vehicle->legal_documents);
+            $legalDocumentsPath = $this->storeVehicleFile($data['legal_documents'], $driver->id, 'legal_documents');
+        }
+
+        $driver->vehicle->update([
+            'name'                  => $data['name']           ?? $driver->vehicle->name,
+            'model'                 => $data['model']          ?? $driver->vehicle->model,
+            'brand'                 => $data['brand']          ?? $driver->vehicle->brand,
+            'insurance_status'      => $data['insurance_status'] ?? $driver->vehicle->insurance_status,
+            'license_plate'         => $data['license_plate']  ?? $driver->vehicle->license_plate,
+            'capacity'              => $data['capacity']       ?? $driver->vehicle->capacity,
+            'truck_image'           => $truckImagePath         ?? $driver->vehicle->truck_image,
+            'driving_license_image' => $drivingLicensePath     ?? $driver->vehicle->driving_license_image,
+            'legal_documents'       => $legalDocumentsPath     ?? $driver->vehicle->legal_documents,
+        ]);
+
+        return ['user' => $driver->fresh()];
+    }
+
+
+    private function storeVehicleFile(UploadedFile $file, int|string $userId, string $folder): string
+    {
+        return $file->store("vehicles/{$userId}/{$folder}", 'public');
+    }
+
+    private function deleteVehicleFile(?string $filePath): void
+    {
+        if (! $filePath) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($filePath)) {
+            Storage::disk('public')->delete($filePath);
+        }
+    }
 }

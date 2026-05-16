@@ -39,6 +39,7 @@ class CustomerServce
         return User::query()
             ->whereKey($id)
             ->where('role', UserRole::USER->value)
+            ->with('requestedRides.driver', 'requestedRides.review')
             ->first();
     }
 
