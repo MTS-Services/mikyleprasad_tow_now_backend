@@ -112,7 +112,7 @@ test('otp mode allows registration', function (): void {
         'email' => 'x@example.com',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.identifier', 'x@example.com')
+        ->assertJsonStructure(['data' => ['expires_in_minutes']])
         ->assertJsonMissingPath('data.access_token');
 
     expect(User::query()->where('email', 'x@example.com')->exists())->toBeTrue();

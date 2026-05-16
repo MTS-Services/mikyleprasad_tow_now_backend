@@ -28,6 +28,16 @@ class OtpAuthController extends Controller
 
     public function request(SendLoginOtpRequest $request, RequestLoginOtpAction $action): JsonResponse
     {
+        if ($this->authLogin->loginType() !== LoginType::Otp) {
+            return sendResponse(
+                status: false,
+                message: __('api.login_otp_disabled'),
+                data: null,
+                statusCode: HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+                additional: ['code' => ApiErrorCode::LoginOtpDisabled->value]
+            );
+        }
+
         return $action->handle($request);
     }
 

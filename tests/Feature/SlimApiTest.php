@@ -30,8 +30,11 @@ test('languages index returns seeded locales', function (): void {
     expect($response->json('data'))->toBeArray()->not->toBeEmpty();
 });
 
-test('register returns token for new user', function (): void {
+test('register returns verification expiry for new user', function (): void {
+    $this->withHeader('X-Guest-Token', 'guest-slim-test');
+
     $response = $this->postJson('/api/v1/register', [
+        'role' => 'user',
         'name' => 'Jan',
         'email' => 'jan@example.com',
         'password' => 'password1',
@@ -39,14 +42,8 @@ test('register returns token for new user', function (): void {
     ]);
 
     $response->assertCreated()->assertJsonPath('success', true);
-    expect($response->json('data.access_token'))->toBeString()->not->toBeEmpty();
-    $response->assertJsonPath('data.user.role', 'user');
-
-    $userId = $response->json('data.user.id');
-    expect($userId)->toBeInt();
-    $this->assertDatabaseHas('user_login_histories', [
-        'user_id' => $userId,
-    ]);
+    $response->assertJsonMissingPath('data.access_token');
+    expect($response->json('data.expires_in_minutes'))->toBeInt()->toBeGreaterThan(0);
 });
 
 test('registration rejects admin role', function (): void {
@@ -60,6 +57,8 @@ test('registration rejects admin role', function (): void {
 });
 
 test('registration accepts explicit user role', function (): void {
+    $this->withHeader('X-Guest-Token', 'guest-slim-test');
+
     $this->postJson('/api/v1/register', [
         'name' => 'Pat',
         'email' => 'pat@example.com',
@@ -68,7 +67,7 @@ test('registration accepts explicit user role', function (): void {
         'role' => 'user',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.user.role', 'user');
+        ->assertJsonStructure(['data' => ['expires_in_minutes']]);
 });
 
 test('login returns token for seeded user', function (): void {

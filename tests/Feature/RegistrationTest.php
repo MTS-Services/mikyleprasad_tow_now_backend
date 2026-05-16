@@ -28,6 +28,8 @@ test('user registration requires role and email and generates a visual username'
     $response = $this->postJson('/api/v1/register', [
         'role' => UserRole::USER->value,
         'email' => 'customer@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])
         ->assertCreated()
         ->assertJsonMissingPath('data.access_token');
@@ -43,10 +45,21 @@ test('user registration requires role and email and generates a visual username'
     Notification::assertSentTo($user, OtpCodeNotification::class);
 });
 
+test('password registration requires password when login type is password', function (): void {
+    $this->postJson('/api/v1/register', [
+        'role' => UserRole::USER->value,
+        'email' => 'missing-password@example.com',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['password']);
+});
+
 test('admin cannot register', function (): void {
     $this->postJson('/api/v1/register', [
         'role' => UserRole::ADMIN->value,
         'email' => 'admin-register@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['role']);
@@ -56,6 +69,8 @@ test('driver registration requires profile fields', function (): void {
     $this->postJson('/api/v1/register', [
         'role' => UserRole::DRIVER->value,
         'email' => 'driver-missing@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors([
@@ -78,6 +93,8 @@ test('driver registration creates related profile and stores documents', functio
     $this->postJson('/api/v1/register', [
         'role' => UserRole::DRIVER->value,
         'email' => 'driver@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
         'name' => 'Casey Driver',
         'phone' => '+15551234567',
         'address' => '123 Main St, Anytown, USA',
@@ -154,6 +171,8 @@ test('registration verify notifies admins with in-app notification', function ()
     $this->postJson('/api/v1/register', [
         'role' => UserRole::USER->value,
         'email' => 'admin-notify-user@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])->assertCreated();
 
     $user = User::query()->where('email', 'admin-notify-user@example.com')->firstOrFail();
@@ -183,6 +202,8 @@ test('registration otp can be resent before verification', function (): void {
     $this->postJson('/api/v1/register', [
         'role' => UserRole::USER->value,
         'email' => 'resend@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])->assertCreated();
 
     $this->postJson('/api/v1/otp/register/resend', [
@@ -201,6 +222,8 @@ test('registration otp verify must use the same guest token session', function (
     $this->postJson('/api/v1/register', [
         'role' => UserRole::USER->value,
         'email' => 'guest-bound@example.com',
+        'password' => 'password1',
+        'password_confirmation' => 'password1',
     ])->assertCreated();
 
     $user = User::query()->where('email', 'guest-bound@example.com')->firstOrFail();
