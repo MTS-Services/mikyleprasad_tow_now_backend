@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ApprovalStatus;
 use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\User;
@@ -32,17 +33,16 @@ test('user registration requires role and email and generates a visual username'
         'password_confirmation' => 'password1',
     ])
         ->assertCreated()
-        ->assertJsonMissingPath('data.access_token');
-
-    $response->assertJsonStructure(['success', 'message', 'data' => ['expires_in_minutes']]);
-    expect($response->json('data.expires_in_minutes'))->toBeInt()->toBeGreaterThan(0);
+        ->assertJsonPath('data.user.email', 'customer@example.com')
+        ->assertJsonPath('data.token_type', 'Bearer')
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 
     $user = User::query()->where('email', 'customer@example.com')->firstOrFail();
 
-    expect($user->email_verified_at)->toBeNull();
+    expect($user->email_verified_at)->not->toBeNull();
     expect($user->username)->toBeString()->toStartWith('USR-');
 
-    Notification::assertSentTo($user, OtpCodeNotification::class);
+    Notification::assertNotSentTo($user, OtpCodeNotification::class);
 });
 
 test('password registration requires password when login type is password', function (): void {
@@ -109,19 +109,22 @@ test('driver registration creates related profile and stores documents', functio
         'legal_documents' => UploadedFile::fake()->image('documents.png'),
     ])
         ->assertCreated()
-        ->assertJsonMissingPath('data.access_token')
-        ->assertJsonStructure(['data' => ['expires_in_minutes']]);
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '')
+        ->assertJsonPath('data.user.approval_status', ApprovalStatus::PENDING->value);
 
     $user = User::query()->where('email', 'driver@example.com')->firstOrFail();
     $vehicle = $user->vehicle()->firstOrFail();
 
+    expect($user->email_verified_at)->not->toBeNull();
+
     Storage::disk('public')->assertExists($vehicle->truck_image);
     Storage::disk('public')->assertExists($vehicle->driving_license_image);
     Storage::disk('public')->assertExists($vehicle->legal_documents);
-    Notification::assertSentTo($user, OtpCodeNotification::class);
+    Notification::assertNotSentTo($user, OtpCodeNotification::class);
 });
 
 test('registration verify creates user and returns access token', function (): void {
+    Config::set('auth_login.login_type', 'otp');
     Notification::fake();
 
     $this->postJson('/api/v1/register', [
@@ -129,14 +132,9 @@ test('registration verify creates user and returns access token', function (): v
         'email' => 'needs-verification@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
-    ])->assertCreated();
-
-    $this->postJson('/api/v1/login', [
-        'email' => 'needs-verification@example.com',
-        'password' => 'password',
     ])
-        ->assertForbidden()
-        ->assertJsonPath('code', 'IDENTIFIER_NOT_VERIFIED');
+        ->assertCreated()
+        ->assertJsonMissingPath('data.access_token');
 
     $code = '123456';
     $user = User::query()->where('email', 'needs-verification@example.com')->firstOrFail();
@@ -164,6 +162,7 @@ test('registration verify creates user and returns access token', function (): v
 });
 
 test('registration verify notifies admins with in-app notification', function (): void {
+    Config::set('auth_login.login_type', 'otp');
     Notification::fake();
 
     User::factory()->admin()->create(['email' => 'admin-reg-notify@example.com']);
@@ -197,6 +196,7 @@ test('registration verify notifies admins with in-app notification', function ()
 });
 
 test('registration otp can be resent before verification', function (): void {
+    Config::set('auth_login.login_type', 'otp');
     Notification::fake();
 
     $this->postJson('/api/v1/register', [
@@ -217,6 +217,7 @@ test('registration otp can be resent before verification', function (): void {
 });
 
 test('registration otp verify must use the same guest token session', function (): void {
+    Config::set('auth_login.login_type', 'otp');
     Notification::fake();
 
     $this->postJson('/api/v1/register', [

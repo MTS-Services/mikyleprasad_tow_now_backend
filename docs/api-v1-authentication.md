@@ -120,21 +120,35 @@ When **`LOGIN_TYPE=otp`**, `POST /api/v1/login` uses the **same rate-limit key s
 }
 ```
 
-**Response (201):** Sends a verification OTP to the user’s email (or phone when configured). Complete registration with **`POST /otp/register/verify`**. `password` and `password_confirmation` are **required** when `LOGIN_TYPE=password`.
+**Response (201) when `LOGIN_TYPE=password`:** Account is created, the sign-in identifier is marked verified, and the client receives a Passport token immediately (no registration OTP step). `password` and `password_confirmation` are **required**.
 
 ```json
 {
   "success": true,
-  "message": "If eligible, a verification code has been sent to your email address.",
+  "message": "Registration successful.",
+  "data": {
+    "token_type": "Bearer",
+    "access_token": "<token>",
+    "user": { }
+  }
+}
+```
+
+New drivers are created with `approval_status: pending` and may log in, but driver API routes return **403** until an admin approves the account (see driver middleware).
+
+**Response (201) when `LOGIN_TYPE=otp`:** Sends a verification OTP. Complete registration with **`POST /otp/register/verify`**, which returns the same `token_type`, `access_token`, and `user` shape as password login.
+
+```json
+{
+  "success": true,
+  "message": "A verification code has been sent to your email address. Please verify to register your account.",
   "data": {
     "expires_in_minutes": 10
   }
 }
 ```
 
-After **`POST /otp/register/verify`** succeeds, `data` includes `token_type`, `access_token`, and `user` (same shape as password login).
-
-**OTP mode (422):**
+**Password mode disabled (422) when `LOGIN_TYPE=otp`:**
 
 ```json
 {

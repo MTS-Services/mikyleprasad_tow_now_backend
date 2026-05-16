@@ -14,6 +14,7 @@ return [
     'driver' => [
         'pending' => 'Your driver account is waiting for approval. Please wait until admin approval.',
         'rejected' => 'Your driver account has been rejected. Please contact support if you believe this is an error.',
+        'suspended' => 'Your driver account has been suspended. Please contact support for assistance.',
     ],
 
 ];
