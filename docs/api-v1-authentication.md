@@ -120,34 +120,19 @@ When **`LOGIN_TYPE=otp`**, `POST /api/v1/login` uses the **same rate-limit key s
 }
 ```
 
-**Response (201):**
+**Response (201):** Sends a verification OTP to the user’s email (or phone when configured). Complete registration with **`POST /otp/register/verify`**. `password` and `password_confirmation` are **required** when `LOGIN_TYPE=password`.
 
 ```json
 {
   "success": true,
-  "message": "Registration successful.",
+  "message": "If eligible, a verification code has been sent to your email address.",
   "data": {
-    "token_type": "Bearer",
-    "access_token": "eyJ0eXAiOiJKV1QiLCJh...",
-    "user": {
-      "id": 1,
-      "name": "Jane Doe",
-      "username": null,
-      "email": "jane@example.com",
-      "phone": "+15551234567",
-      "locale": "en",
-      "timezone": null,
-      "role": "user",
-      "role_label": "User",
-      "two_factor_enabled": false,
-      "email_verified_at": null,
-      "phone_verified_at": null,
-      "created_at": "2026-05-02T12:00:00+00:00",
-      "updated_at": "2026-05-02T12:00:00+00:00"
-    }
+    "expires_in_minutes": 10
   }
 }
 ```
+
+After **`POST /otp/register/verify`** succeeds, `data` includes `token_type`, `access_token`, and `user` (same shape as password login).
 
 **OTP mode (422):**
 

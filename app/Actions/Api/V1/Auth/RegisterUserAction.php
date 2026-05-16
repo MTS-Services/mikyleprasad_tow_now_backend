@@ -4,6 +4,7 @@ namespace App\Actions\Api\V1\Auth;
 
 use App\Enums\ApiErrorCode;
 use App\Enums\LoginIdentifierType;
+use App\Enums\LoginType;
 use App\Enums\OtpPurpose;
 use App\Enums\UserRole;
 use App\Models\User;
@@ -168,7 +169,7 @@ class RegisterUserAction
             ],
             'address' => ['required_if:role,'.UserRole::DRIVER->value, 'nullable', 'string', 'max:500'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
+            'password' => $this->passwordRulesForRegistration(),
             'locale' => ['nullable', 'string', 'max:24'],
             'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
 
@@ -207,6 +208,18 @@ class RegisterUserAction
                 'max:5120',
             ],
         ])->validate();
+    }
+
+    /**
+     * @return list<string|\Illuminate\Contracts\Validation\ValidationRule>
+     */
+    private function passwordRulesForRegistration(): array
+    {
+        if ($this->authLogin->loginType() === LoginType::Password) {
+            return ['required', 'string', 'min:8', 'confirmed'];
+        }
+
+        return ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'];
     }
 
     /**
