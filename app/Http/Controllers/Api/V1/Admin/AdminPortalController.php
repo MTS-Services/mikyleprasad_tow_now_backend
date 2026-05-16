@@ -9,12 +9,14 @@ use App\Enums\RideStatusEnum;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\AdminDriverDetailResource;
+use App\Http\Resources\Api\V1\ReviewResource;
 use App\Http\Resources\Api\V1\RideResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Ride;
 use App\Models\User;
 use App\Services\CustomerServce;
 use App\Services\DriverService;
+use App\Services\ReviewService;
 use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +32,7 @@ class AdminPortalController extends Controller
         private readonly UserActorFilters $userActorFilters,
         private readonly DriverService $driverService,
         private readonly CustomerServce $customerServce,
+        private readonly ReviewService $reviewService,
     ) {}
 
     public function dashboard(): JsonResponse
@@ -163,5 +166,12 @@ class AdminPortalController extends Controller
         }
 
         return sendResponse(true, 'Customer fetched successfully.', new UserResource($customerDetails), HttpStatus::HTTP_OK);
+    }
+
+    public function reviews(): JsonResponse
+    {
+        $reviews = $this->reviewService->getAll();
+
+        return sendResponse(true, 'Admin reviews fetched successfully.', ReviewResource::collection($reviews), HttpStatus::HTTP_OK);
     }
 }
