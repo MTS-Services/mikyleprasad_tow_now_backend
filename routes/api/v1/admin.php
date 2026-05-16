@@ -27,6 +27,8 @@ Route::post('drivers/{driver}/reject', [AdminPortalController::class, 'rejectDri
 Route::get('drivers/{driver}', [AdminPortalController::class, 'showDriver']);
 Route::get('customers', [AdminPortalController::class, 'customers']);
 Route::get('customers/{customer}', [AdminPortalController::class, 'showCustomer']);
+Route::get('reviews', [AdminPortalController::class, 'reviews']);
+
 
 Route::controller(ProfileController::class)->group(function () {
     Route::get('profile', 'index');
