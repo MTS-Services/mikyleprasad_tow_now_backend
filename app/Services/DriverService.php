@@ -46,8 +46,18 @@ class DriverService
             ->where('is_suspended', $tab === 'suspended')
             ->with([
                 'vehicle:id,user_id,name,brand,model,capacity,license_plate,insurance_status',
-            ])
-            ->inRandomOrder();
+            ]);
+
+        if ($filters['sort'] === 'random') {
+            $query->inRandomOrder();
+        } else if ($filters['sort'] === 'latest') {
+            $query->orderByDesc('id');
+        } else if ($filters['sort'] === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
 
         $this->driverQueryFilters->apply($query, $filters);
 

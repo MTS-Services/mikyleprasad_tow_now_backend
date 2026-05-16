@@ -25,7 +25,7 @@ class DriverSearchController extends Controller
     public function index(FindDriversRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $filters['tab'] = 'featured_drivers';
+        $filters['tab'] ??= 'all';
         $lowBandwidth = filter_var((string) $request->header('X-Low-Bandwidth', '0'), FILTER_VALIDATE_BOOLEAN);
         if ($lowBandwidth) {
             $filters['lite'] = true;
