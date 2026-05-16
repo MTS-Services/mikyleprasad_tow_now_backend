@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
 
 class UserServce
 {
@@ -45,12 +46,25 @@ class UserServce
             'site_email'   => ['sometimes', 'email'],
             'site_phone'   => ['sometimes', 'string'],
             'site_address' => ['sometimes', 'string'],
+
+            'current_password' => ['sometimes', 'required', 'string'],
+            'password'         => ['sometimes', 'required', 'string', 'min:6', 'confirmed'],
         ])->validate();
 
         $foundUser = User::query()->whereKey($user->id)->first();
 
         if (! $foundUser) {
             return null;
+        }
+
+
+        if (isset($data['password'])) {
+            if (! isset($data['current_password'])) {
+                throw new \Exception('Current password is required.');
+            }
+            if (!Hash::check($data['current_password'], $foundUser->password)) {
+                throw new \Exception('Current password is incorrect.');
+            }
         }
 
         $avatarPath = null;
@@ -66,11 +80,17 @@ class UserServce
             'address' => $data['address'] ?? $foundUser->address,
             'avatar'  => $avatarPath      ?? $foundUser->avatar,
         ]);
+
         $siteFields = ['site_email', 'site_phone', 'site_address'];
         $hasSiteData = collect($siteFields)->contains(fn($field) => array_key_exists($field, $data));
 
         if ($hasSiteData) {
             $this->updateSiteSetting($data);
+        }
+
+        if (isset($data['password'])) {
+            $foundUser->password = bcrypt($data['password']);
+            $foundUser->save();
         }
 
         return ['user' => $foundUser->fresh()];
@@ -92,6 +112,8 @@ class UserServce
             'site_address' => $data['site_address'] ?? $siteSetting->site_address,
         ]);
     }
+
+
 
     private function storeAvatar(UploadedFile $file, int|string $userId): string
     {
