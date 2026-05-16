@@ -160,6 +160,12 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
         return $this->hasMany(Ride::class, 'driver_id', 'id')->orderByDesc('id');
     }
 
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'user_id', 'id');
+    }
+
     /**
      * Get total rides count for this user (as driver)
      */
