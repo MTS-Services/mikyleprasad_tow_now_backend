@@ -44,6 +44,7 @@ class DriverService
                 'id',
                 'name',
                 'username',
+                'avatar',
                 'email',
                 'phone',
                 'address',

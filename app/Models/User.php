@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -224,5 +225,14 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
             'cancelled_rides' => $this->cancelled_rides,
             'active_rides' => $this->active_rides,
         ];
+    }
+    public function driverReviews(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Review::class,
+            Ride::class,
+            'driver_id',
+            'ride_id',
+        );
     }
 }

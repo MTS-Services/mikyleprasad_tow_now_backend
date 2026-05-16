@@ -61,6 +61,16 @@ class UserResource extends JsonResource
                     'active_rides' => $this->active_rides,
                 ]
             ),
+
+            'review_stats' => $this->when(
+                $this->role?->value === 'driver',
+                fn() => [
+                    'total_reviews'  => $this->driver_reviews_count ?? 0,
+                    'average_rating' => $this->driver_reviews_avg_rating
+                        ? round((float) $this->driver_reviews_avg_rating, 1)
+                        : null,
+                ]
+            ),
             'ride_statistics_customer' => $this->when(
                 $this->role?->value === 'user',
                 fn() => [
@@ -72,18 +82,18 @@ class UserResource extends JsonResource
 
                     'cancelled_rides' => $this->requestedRides
                         ->whereIn('status', [
-                          RideStatusEnum::CANCELLED_BY_USER,
-                          RideStatusEnum::CANCELLED_BY_DRIVER,
-                          RideStatusEnum::SYSTEM_CANCELLED,
-                          RideStatusEnum::EXPIRED,
+                            RideStatusEnum::CANCELLED_BY_USER,
+                            RideStatusEnum::CANCELLED_BY_DRIVER,
+                            RideStatusEnum::SYSTEM_CANCELLED,
+                            RideStatusEnum::EXPIRED,
                         ])
                         ->count(),
 
                     'active_rides' => $this->requestedRides
                         ->whereIn('status', [
-                          RideStatusEnum::PENDING,
-                          RideStatusEnum::ACTIVE,
-                          RideStatusEnum::ARRIVED,
+                            RideStatusEnum::PENDING,
+                            RideStatusEnum::ACTIVE,
+                            RideStatusEnum::ARRIVED,
                         ])
                         ->count(),
                 ]
