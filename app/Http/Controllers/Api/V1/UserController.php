@@ -14,7 +14,9 @@ class UserController extends Controller
 {
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->loadMissing('preferredCurrency', 'vehicle');
+        $user = $request->user()->loadMissing('preferredCurrency', 'vehicle')
+            ->loadCount('driverReviews')
+            ->loadAvg('driverReviews', 'rating');
 
         return sendResponse(
             status: true,
@@ -31,7 +33,7 @@ class UserController extends Controller
 
         $user->forceFill(['fcm_token' => $token])->save();
 
-        Cache::put('fcm_token_'.$user->getAuthIdentifier(), $token, now()->addDays(30));
+        Cache::put('fcm_token_' . $user->getAuthIdentifier(), $token, now()->addDays(30));
 
         return sendResponse(
             status: true,
