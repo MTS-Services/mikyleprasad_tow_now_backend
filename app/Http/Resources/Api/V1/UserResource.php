@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\RideStatusEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection as SupportCollection;
@@ -60,17 +61,62 @@ class UserResource extends JsonResource
                     'active_rides' => $this->active_rides,
                 ]
             ),
+            'ride_statistics_customer' => $this->when(
+                $this->role?->value === 'user',
+                fn() => [
+                    'total_rides' => $this->requestedRides->count(),
+
+                    'completed_rides' => $this->requestedRides
+                        ->where('status', RideStatusEnum::COMPLETED_USER)
+                        ->count(),
+
+                    'cancelled_rides' => $this->requestedRides
+                        ->whereIn('status', [
+                          RideStatusEnum::CANCELLED_BY_USER,
+                          RideStatusEnum::CANCELLED_BY_DRIVER,
+                          RideStatusEnum::SYSTEM_CANCELLED,
+                          RideStatusEnum::EXPIRED,
+                        ])
+                        ->count(),
+
+                    'active_rides' => $this->requestedRides
+                        ->whereIn('status', [
+                          RideStatusEnum::PENDING,
+                          RideStatusEnum::ACTIVE,
+                          RideStatusEnum::ARRIVED,
+                        ])
+                        ->count(),
+                ]
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'requested_rides' => $this->when($this->role?->value === 'user', 
-               fn() => $this->whenLoaded('requestedRides', fn() => new RideResource( new SupportCollection($this->requestedRides)))
-            ),
-            'reviews' => $this->when($this->role?->value === 'user', 
-                fn() => [
-                    'average_rating' => $this->average_rating,
-                    'total_reviews' => $this->total_reviews,
-                    ''
-                ]
+            'requested_rides' => $this->when(
+                $this->role?->value === 'user',
+                fn() => $this->whenLoaded(
+                    'requestedRides',
+                    fn() => $this->requestedRides->map(fn($ride) => [
+                        'id' => $ride->id,
+                        'pickup_location' => $ride->pickup_location,
+                        'dropoff_location' => $ride->dropoff_location,
+                        'status' => $ride->status,
+
+                        'driver' => $ride->driver ? [
+                            'id' => $ride->driver->id,
+                            'name' => $ride->driver->name,
+                            'avatar_url' => $ride->driver->avatar
+                                ? storage_url($ride->driver->avatar)
+                                : null,
+                        ] : null,
+
+                        'review' => $ride->review ? [
+                            'id' => $ride->review->id,
+                            'rating' => $ride->review->rating,
+                            'body' => $ride->review->body,
+                        ] : null,
+
+                        'created_at' => $ride->created_at?->toIso8601String(),
+                    ])
+                )
             ),
         ];
     }
