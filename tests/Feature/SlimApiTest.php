@@ -15,6 +15,7 @@ use Laravel\Passport\Passport;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    Config::set('broadcasting.default', 'log');
     Config::set('auth_login.login_type', 'password');
     Config::set('auth_login.login_identifiers', ['email']);
     Config::set('auth_login.otp_delivery', 'email');
@@ -42,8 +43,8 @@ test('register returns verification expiry for new user', function (): void {
     ]);
 
     $response->assertCreated()->assertJsonPath('success', true);
-    $response->assertJsonMissingPath('data.access_token');
-    expect($response->json('data.expires_in_minutes'))->toBeInt()->toBeGreaterThan(0);
+    $response->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
+    $response->assertJsonPath('data.user.email', 'jan@example.com');
 });
 
 test('registration rejects admin role', function (): void {
@@ -67,7 +68,7 @@ test('registration accepts explicit user role', function (): void {
         'role' => 'user',
     ])
         ->assertCreated()
-        ->assertJsonStructure(['data' => ['expires_in_minutes']]);
+        ->assertJsonPath('data.access_token', fn ($value): bool => is_string($value) && $value !== '');
 });
 
 test('login returns token for seeded user', function (): void {
@@ -130,7 +131,7 @@ test('approved driver can access driver routes', function (): void {
 
     Passport::actingAs($driver);
 
-    $this->getJson('/api/v1/driver/dashboard')->assertOk();
+    $this->getJson('/api/v1/driver/stats')->assertOk();
 });
 
 test('pending driver cannot access driver routes', function (): void {
@@ -141,9 +142,10 @@ test('pending driver cannot access driver routes', function (): void {
 
     Passport::actingAs($driver);
 
-    $this->getJson('/api/v1/driver/dashboard')
+    $this->getJson('/api/v1/driver/stats')
         ->assertForbidden()
-        ->assertJsonPath('message', __('auth.driver.pending'));
+        ->assertJsonPath('message', __('auth.driver.pending'))
+        ->assertJsonPath('data.approval_status', ApprovalStatus::PENDING->value);
 });
 
 test('rejected driver cannot access driver routes', function (): void {
@@ -154,9 +156,25 @@ test('rejected driver cannot access driver routes', function (): void {
 
     Passport::actingAs($driver);
 
-    $this->getJson('/api/v1/driver/dashboard')
+    $this->getJson('/api/v1/driver/stats')
         ->assertForbidden()
-        ->assertJsonPath('message', __('auth.driver.rejected'));
+        ->assertJsonPath('message', __('auth.driver.rejected'))
+        ->assertJsonPath('data.approval_status', ApprovalStatus::REJECTED->value);
+});
+
+test('suspended driver cannot log in with password', function (): void {
+    $driver = User::query()->where('email', 'driver@dev.com')->firstOrFail();
+    $driver->forceFill([
+        'is_suspended' => true,
+        'approval_status' => ApprovalStatus::APPROVED,
+    ])->save();
+
+    $this->postJson('/api/v1/login', [
+        'email' => 'driver@dev.com',
+        'password' => 'password',
+    ])
+        ->assertUnauthorized()
+        ->assertJsonPath('message', __('auth.driver.suspended'));
 });
 
 test('currencies index is public', function (): void {

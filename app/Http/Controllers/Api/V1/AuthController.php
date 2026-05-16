@@ -10,6 +10,7 @@ use App\Actions\Api\V1\Auth\RevokePassportTokensAction;
 use App\Actions\Api\V1\Otp\RequestLoginOtpAction;
 use App\Enums\ApiErrorCode;
 use App\Enums\LoginType;
+use App\Enums\UserRole;
 use App\Http\Controllers\Concerns\CompletesApiLogin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ForgotPasswordRequest;
@@ -39,17 +40,25 @@ class AuthController extends Controller
 
     public function register(Request $request, RegisterUserAction $registerUserAction): JsonResponse
     {
-
         $result = $registerUserAction->handle($request);
+
+        if (isset($result['access_token'])) {
+            return sendResponse(
+                status: true,
+                message: __('api.registration_successful'),
+                data: [
+                    'access_token' => $result['access_token'],
+                    'token_type' => $result['token_type'],
+                    'user' => new UserResource($result['user']),
+                ],
+                statusCode: HttpStatus::HTTP_CREATED
+            );
+        }
 
         return sendResponse(
             status: true,
             message: __('api.registration_verification_sent'),
             data: [
-                // 'user' => new UserResource($result['user']),
-                // 'identifier_type' => $result['identifier_type'],
-                // 'identifier' => $result['identifier'],
-                // 'verification_channel' => $result['verification_channel'],
                 'expires_in_minutes' => $result['expires_in_minutes'],
             ],
             statusCode: HttpStatus::HTTP_CREATED
@@ -75,6 +84,14 @@ class AuthController extends Controller
 
         if (! $user || $user->password === null || ! Hash::check($request->string('password')->toString(), $user->password)) {
             return sendResponse(status: false, message: __('auth.failed'), statusCode: HttpStatus::HTTP_UNAUTHORIZED);
+        }
+
+        if ($user->role === UserRole::DRIVER && $user->is_suspended) {
+            return sendResponse(
+                status: false,
+                message: __('auth.driver.suspended'),
+                statusCode: HttpStatus::HTTP_UNAUTHORIZED
+            );
         }
 
         $ensureLoginIdentifierIsVerifiedAction->handle($request, $user);

@@ -35,7 +35,15 @@ class RegisterUserAction
     ) {}
 
     /**
-     * @return array{user: User, identifier_type: string, identifier: string, verification_channel: string, expires_in_minutes: int}
+     * @return array{
+     *     user: User,
+     *     identifier_type?: string,
+     *     identifier?: string,
+     *     verification_channel?: string,
+     *     expires_in_minutes?: int,
+     *     access_token?: string,
+     *     token_type?: string
+     * }
      *
      * @throws ValidationException
      */
@@ -43,13 +51,16 @@ class RegisterUserAction
     {
         $validated = $this->validatedRegistrationPayload($request);
         $verificationChannel = $this->verificationChannelForRegistration();
-        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
-        $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
-
         $identifierType = $verificationChannel === 'phone' ? LoginIdentifierType::Phone : LoginIdentifierType::Email;
         $identifier = $this->registrationIdentifier($identifierType, $validated);
         $user = $this->createUserFromValidatedPayload($request, $validated);
 
+        if ($this->authLogin->loginType() === LoginType::Password) {
+            return $this->completeRegistration($request, $user, $identifierType);
+        }
+
+        $this->ensureVerificationDeliveryIsAvailable($verificationChannel);
+        $guestTokenHash = GuestToken::hash(GuestToken::fromRequest($request));
         $this->sendVerificationOtp($user, $identifierType, $identifier, $verificationChannel, $guestTokenHash);
 
         return [
@@ -121,6 +132,15 @@ class RegisterUserAction
         }
 
         $this->otpRepository->forget($purpose, $fingerprint);
+
+        return $this->completeRegistration($request, $user, $identifierType);
+    }
+
+    /**
+     * @return array{user: User, access_token: string, token_type: string}
+     */
+    private function completeRegistration(Request $request, User $user, LoginIdentifierType $identifierType): array
+    {
         $this->markIdentifierVerified($user, $identifierType);
 
         $accessToken = $this->issuePersonalAccessTokenAction->handle(
@@ -144,8 +164,10 @@ class RegisterUserAction
             ],
         );
 
+        $relations = $user->role === UserRole::DRIVER ? ['vehicle'] : [];
+
         return [
-            'user' => $user->fresh(['Vehicle']),
+            'user' => $user->fresh($relations),
             'access_token' => $accessToken,
             'token_type' => 'Bearer',
         ];

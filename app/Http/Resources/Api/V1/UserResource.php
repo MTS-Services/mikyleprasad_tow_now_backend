@@ -47,7 +47,7 @@ class UserResource extends JsonResource
             'bio' => $this->bio,
             'is_suspended' => $this->is_suspended,
             'is_featured' => $this->is_featured,
-            'approval_status' => $this->approval_status,
+            'approval_status' => $this->approval_status?->value ?? $this->approval_status,
             'status' => $this->status,
             'two_factor_enabled' => $this->hasEnabledTwoFactorAuthentication(),
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),

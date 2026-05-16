@@ -22,12 +22,20 @@ class EnsureDriver
             );
         }
 
+        if ($user->is_suspended) {
+            return sendResponse(
+                status: false,
+                message: __('auth.driver.suspended'),
+                statusCode: Response::HTTP_FORBIDDEN
+            );
+        }
+
         if ($user->approval_status === ApprovalStatus::PENDING) {
             return sendResponse(
                 status: false,
                 message: __('auth.driver.pending'),
                 data: [
-                    'approval_status' => $user->approval_status,
+                    'approval_status' => $user->approval_status->value,
                 ],
                 statusCode: Response::HTTP_FORBIDDEN
             );
@@ -38,7 +46,7 @@ class EnsureDriver
                 status: false,
                 message: __('auth.driver.rejected'),
                 data: [
-                    'approval_status' => $user->approval_status,
+                    'approval_status' => $user->approval_status->value,
                 ],
                 statusCode: Response::HTTP_FORBIDDEN
             );
