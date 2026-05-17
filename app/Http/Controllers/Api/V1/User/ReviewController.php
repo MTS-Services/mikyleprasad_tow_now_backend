@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1\User;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\ReviewResource;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use App\Services\ReviewService;
+use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class ReviewController extends Controller
 {
@@ -38,5 +40,10 @@ class ReviewController extends Controller
         ]);
 
         return sendResponse(status: true, message: __('api.review_created'), data: $review, statusCode: 201);
+    }
+
+    public function reviews(){
+        $reviews = $this->reviewService->getAll();
+        return sendResponse(true, 'Reviews fetched successfully.', ReviewResource::collection($reviews), HttpStatus::HTTP_OK);
     }
 }

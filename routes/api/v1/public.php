@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\DriverSearchController;
 use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\OtpAuthController;
 use App\Http\Controllers\Api\V1\SiteSettingsController;
+use App\Http\Controllers\Api\V1\User\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(AuthController::class)->group(function () {
@@ -39,4 +40,5 @@ Route::get('/drivers/{id}', [DriverSearchController::class, 'show'])->middleware
 Route::get('/site-settings', [SiteSettingsController::class, 'index'])->middleware('public.cache');
 
 Route::post('/contact-queries', [ContactQueryController::class, 'store']);
+Route::get('/reviews', [ReviewController::class, 'reviews']);
 

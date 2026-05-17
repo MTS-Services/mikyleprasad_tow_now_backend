@@ -20,7 +20,7 @@ class ReviewService
     }
 
     public function getAll(){
-        return $this->review->get();
+        return $this->review->with(['user', 'ride.driver'])->get();
     }
 
     public function paginate(array $filters): LengthAwarePaginator
