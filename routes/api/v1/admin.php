@@ -29,6 +29,8 @@ Route::post('drivers/{driver}/suspend', [AdminPortalController::class, 'suspendD
 Route::post('drivers/{driver}/unsuspend', [AdminPortalController::class, 'unsuspendDriver']);
 Route::post('drivers/{driver}/featured', [AdminPortalController::class, 'featuredDriver']);
 Route::post('drivers/{driver}/unfeatured', [AdminPortalController::class, 'unfeaturedDriver']);
+Route::get('drivers/{driver}/vehicle-documents/{document}', [AdminPortalController::class, 'downloadDriverVehicleDocument'])
+    ->whereIn('document', ['truck_image', 'driving_license_image', 'legal_documents']);
 Route::get('drivers/{driver}', [AdminPortalController::class, 'showDriver']);
 Route::get('customers', [AdminPortalController::class, 'customers']);
 Route::get('customers/{customer}', [AdminPortalController::class, 'showCustomer']);
