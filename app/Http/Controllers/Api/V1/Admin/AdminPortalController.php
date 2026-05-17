@@ -177,4 +177,30 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Admin reviews fetched successfully.', ReviewResource::collection($reviews), HttpStatus::HTTP_OK);
     }
+
+    public function suspendDriver(User $driver): JsonResponse
+    {
+        $this->driverService->suspendDriver($driver->id);
+
+        return sendResponse(true, 'Driver suspended successfully.', null, HttpStatus::HTTP_OK);
+    }
+    public function unsuspendDriver(User $driver): JsonResponse
+    {
+        $this->driverService->unsuspendDriver($driver->id);
+
+        return sendResponse(true, 'Driver unsuspended successfully.', null, HttpStatus::HTTP_OK);
+    }
+
+    public function featuredDriver(User $driver): JsonResponse
+    {
+        $this->driverService->featuredDriver($driver->id);
+
+        return sendResponse(true, 'Driver featured successfully.', null, HttpStatus::HTTP_OK);
+    }
+    public function unfeaturedDriver(User $driver): JsonResponse
+    {
+        $this->driverService->unfeaturedDriver($driver->id);
+
+        return sendResponse(true, 'Driver unfeatured successfully.', null, HttpStatus::HTTP_OK);
+    }
 }

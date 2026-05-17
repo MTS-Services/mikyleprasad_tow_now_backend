@@ -86,8 +86,8 @@ class DriverService
                 ->where('approval_status', ApprovalStatus::PENDING->value)
                 ->where('is_suspended', false),
             'all' => $query
-                ->where('approval_status', ApprovalStatus::APPROVED->value)
-                ->where('is_suspended', false),
+                ->where('approval_status', ApprovalStatus::APPROVED->value),
+                // ->where('is_suspended', false),
             'featured_drivers' => $query
                 ->where('approval_status', ApprovalStatus::APPROVED->value)
                 ->where('is_suspended', false)
@@ -288,6 +288,62 @@ class DriverService
 
         if (Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
+        }
+    }
+
+    public function suspendDriver(int $driverId): void
+    {
+        $driver = User::query()
+            ->whereKey($driverId)
+            ->where('role', UserRole::DRIVER->value)
+            ->first();
+
+        if ($driver) {
+            $driver->update([
+                'is_suspended' => true,
+            ]);
+        }
+    }
+
+    public function unsuspendDriver(int $driverId)
+    {
+        $driver = User::query()
+            ->whereKey($driverId)
+            ->where('role', UserRole::DRIVER->value)
+            ->first();
+
+        if ($driver) {
+            $driver->update([
+                'is_suspended' => false,
+            ]);
+        }
+    }
+
+    public function featuredDriver(int $driverId)
+    {
+        $driver = User::query()
+            ->whereKey($driverId)
+            ->where('role', UserRole::DRIVER->value)
+            ->first();
+
+        if ($driver) {
+            $driver->update([
+                'is_featured' => true,
+            ]);
+        }
+    }
+    
+    public function unfeaturedDriver(int $driverId)
+    {
+        $driver = User::query()
+            ->whereKey($driverId)
+            ->where('role', UserRole::DRIVER->value)
+            ->first();
+
+        if ($driver) {
+            $driver->update([
+                'is_featured' => false,
+            ]);
         }
     }
 }
