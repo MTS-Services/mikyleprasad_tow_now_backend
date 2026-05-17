@@ -64,6 +64,10 @@ class DriverService
         $this->driverQueryFilters->apply($query, $filters);
         $this->applySort($query, $audience, $sort, isset($filters['seed']) ? (string) $filters['seed'] : null);
 
+        if ($audience === 'admin') {
+            $this->applyAdminListAggregates($query);
+        }
+
         return $query->paginate((int) ($filters['per_page'] ?? 15))->withQueryString();
     }
 
@@ -100,6 +104,36 @@ class DriverService
                 ->where('approval_status', ApprovalStatus::PENDING->value)
                 ->where('is_suspended', false),
         };
+    }
+
+    /**
+     * Avoid N+1 ride-stat queries when serializing admin driver lists.
+     */
+    private function applyAdminListAggregates(Builder $query): void
+    {
+        $cancelledStatuses = [
+            RideStatusEnum::CANCELLED_BY_USER->value,
+            RideStatusEnum::CANCELLED_BY_DRIVER->value,
+            RideStatusEnum::SYSTEM_CANCELLED->value,
+            RideStatusEnum::EXPIRED->value,
+        ];
+
+        $activeStatuses = [
+            RideStatusEnum::PENDING->value,
+            RideStatusEnum::ACTIVE->value,
+            RideStatusEnum::ARRIVED->value,
+        ];
+
+        $query->withCount([
+            'assignedRides as ride_stats_total',
+            'assignedRides as ride_stats_completed' => fn (Builder $q) => $q->where(
+                'status',
+                RideStatusEnum::COMPLETED_USER->value
+            ),
+            'assignedRides as ride_stats_cancelled' => fn (Builder $q) => $q->whereIn('status', $cancelledStatuses),
+            'assignedRides as ride_stats_active' => fn (Builder $q) => $q->whereIn('status', $activeStatuses),
+            'driverReviews as driver_reviews_count',
+        ])->withAvg('driverReviews as driver_reviews_avg_rating', 'rating');
     }
 
     private function applySort(Builder $query, string $audience, string $sort, ?string $seed): void
