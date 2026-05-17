@@ -54,12 +54,19 @@ class UserResource extends JsonResource
             'phone_verified_at' => $this->phone_verified_at?->toIso8601String(),
             'ride_statistics' => $this->when(
                 $this->role?->value === 'driver',
-                fn() => [
-                    'total_rides' => $this->total_rides,
-                    'completed_rides' => $this->completed_rides,
-                    'cancelled_rides' => $this->cancelled_rides,
-                    'active_rides' => $this->active_rides,
-                ]
+                fn() => array_key_exists('ride_stats_total', $this->resource->getAttributes())
+                    ? [
+                        'total_rides' => (int) $this->ride_stats_total,
+                        'completed_rides' => (int) $this->ride_stats_completed,
+                        'cancelled_rides' => (int) $this->ride_stats_cancelled,
+                        'active_rides' => (int) $this->ride_stats_active,
+                    ]
+                    : [
+                        'total_rides' => $this->total_rides,
+                        'completed_rides' => $this->completed_rides,
+                        'cancelled_rides' => $this->cancelled_rides,
+                        'active_rides' => $this->active_rides,
+                    ]
             ),
 
             'review_stats' => $this->when(
