@@ -18,8 +18,12 @@ use App\Services\ReviewService;
 use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminPortalController extends Controller
 {
@@ -145,6 +149,45 @@ class AdminPortalController extends Controller
         }
 
         return sendResponse(true, 'Driver fetched successfully.', new UserResource($driverDetails), HttpStatus::HTTP_OK);
+    }
+
+    public function downloadDriverVehicleDocument(User $driver, string $document): JsonResponse|RedirectResponse|BinaryFileResponse|StreamedResponse
+    {
+        $allowed = ['truck_image', 'driving_license_image', 'legal_documents'];
+
+        if (! in_array($document, $allowed, true)) {
+            return sendResponse(false, 'Invalid document type.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $driverDetails = $this->driverService->find($driver->id);
+
+        if (! $driverDetails?->vehicle) {
+            return sendResponse(false, 'Driver or vehicle not found.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $path = $driverDetails->vehicle->{$document};
+
+        if ($path === null || $path === '') {
+            return sendResponse(false, 'Document not found.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $trimmed = ltrim($path, '/');
+
+        if (str_starts_with($trimmed, 'http://') || str_starts_with($trimmed, 'https://')) {
+            return redirect()->away($path);
+        }
+
+        if (str_starts_with($trimmed, 'storage/')) {
+            $trimmed = substr($trimmed, strlen('storage/'));
+        }
+
+        if (! Storage::disk('public')->exists($trimmed)) {
+            return sendResponse(false, 'File not found.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $filename = $document.'-'.($driverDetails->username ?? $driverDetails->id).'-'.basename($trimmed);
+
+        return Storage::disk('public')->download($trimmed, $filename);
     }
 
     public function customers(Request $request): JsonResponse

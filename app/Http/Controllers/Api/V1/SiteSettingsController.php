@@ -13,7 +13,7 @@ class SiteSettingsController extends Controller
 {
     public function index(AuthLoginConfiguration $authLogin): JsonResponse
     {
-        $siteSettings = Cache::remember('site-settings:public:v2', now()->addMinutes(5), function () use ($authLogin) {
+        $siteSettings = Cache::remember(SiteSetting::PUBLIC_CACHE_KEY, now()->addMinutes(5), function () use ($authLogin) {
             $row = SiteSetting::query()->first();
 
             return array_merge($row ? $row->toArray() : [], [
