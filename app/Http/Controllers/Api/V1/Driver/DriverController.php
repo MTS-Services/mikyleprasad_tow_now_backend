@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\V1\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\ReviewResource;
 use App\Http\Resources\Api\V1\UserResource;
+use App\Services\ReviewService;
 use App\Services\UserServce;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +15,8 @@ class DriverController extends Controller
 {
 
     public function __construct(
-        private readonly UserServce $userServce
+        private readonly UserServce $userServce,
+        private readonly ReviewService $reviewService
     ) {}
 
 
@@ -47,5 +50,13 @@ class DriverController extends Controller
             new UserResource($data['user']),
             HttpStatus::HTTP_OK
         );
+    }
+
+    
+    public function reviews()
+    {
+        $data = $this->reviewService->driverReviews(auth()->id());
+        
+        return sendResponse(true, 'Reviews retrieved successfully.', ReviewResource::collection($data), HttpStatus::HTTP_OK);
     }
 }

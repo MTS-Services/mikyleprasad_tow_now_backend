@@ -28,4 +28,11 @@ class ReviewService
         return $this->review->paginate($filters['per_page'] ?? 15);
     }
 
+    public function driverReviews($driverId): LengthAwarePaginator
+    {
+        return $this->review->whereHas('ride', function ($query) use ($driverId) {
+            $query->where('driver_id', $driverId);
+        })->paginate(15);
+    }
+
 }
