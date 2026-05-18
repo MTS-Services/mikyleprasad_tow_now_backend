@@ -8,13 +8,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
+    'review_id',
     'user_id',
-    'ride_id',
-    'rating',
+    'parent_id',
     'body',
 ])]
-class Review extends Model
+class ReviewReplay extends Model
 {
+    /**
+     * @return BelongsTo<Review, $this>
+     */
+    public function review(): BelongsTo
+    {
+        return $this->belongsTo(Review::class, 'review_id');
+    }
+
     /**
      * @return BelongsTo<User, $this>
      */
@@ -24,18 +32,18 @@ class Review extends Model
     }
 
     /**
-     * @return BelongsTo<Ride, $this>
+     * @return BelongsTo<ReviewReplay, $this>
      */
-    public function ride(): BelongsTo
+    public function parent(): BelongsTo
     {
-        return $this->belongsTo(Ride::class, 'ride_id');
+        return $this->belongsTo(self::class, 'parent_id');
     }
 
     /**
      * @return HasMany<ReviewReplay, $this>
      */
-    public function reviewReplays(): HasMany
+    public function replies(): HasMany
     {
-        return $this->hasMany(ReviewReplay::class, 'review_id')->orderBy('id');
+        return $this->hasMany(self::class, 'parent_id')->orderBy('id');
     }
 }

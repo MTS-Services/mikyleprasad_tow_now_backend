@@ -214,9 +214,14 @@ class AdminPortalController extends Controller
         return sendResponse(true, 'Customer fetched successfully.', new UserResource($customerDetails), HttpStatus::HTTP_OK);
     }
 
-    public function reviews(): JsonResponse
+    public function reviews(Request $request): JsonResponse
     {
-        $reviews = $this->reviewService->getAll();
+        $filters = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $reviews = $this->reviewService->paginate($filters);
 
         return sendResponse(true, 'Admin reviews fetched successfully.', ReviewResource::collection($reviews), HttpStatus::HTTP_OK);
     }
@@ -227,6 +232,7 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Driver suspended successfully.', null, HttpStatus::HTTP_OK);
     }
+
     public function unsuspendDriver(User $driver): JsonResponse
     {
         $this->driverService->unsuspendDriver($driver->id);
@@ -240,6 +246,7 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Driver featured successfully.', null, HttpStatus::HTTP_OK);
     }
+
     public function unfeaturedDriver(User $driver): JsonResponse
     {
         $this->driverService->unfeaturedDriver($driver->id);

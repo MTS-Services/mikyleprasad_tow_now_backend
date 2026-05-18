@@ -161,10 +161,14 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
         return $this->hasMany(Ride::class, 'driver_id', 'id')->orderByDesc('id');
     }
 
-
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'user_id', 'id');
+    }
+
+    public function reviewReplays(): HasMany
+    {
+        return $this->hasMany(ReviewReplay::class, 'user_id', 'id');
     }
 
     /**
@@ -226,6 +230,7 @@ class User extends Authenticatable implements CanResetPasswordContract, OAuthent
             'active_rides' => $this->active_rides,
         ];
     }
+
     public function driverReviews(): HasManyThrough
     {
         return $this->hasManyThrough(

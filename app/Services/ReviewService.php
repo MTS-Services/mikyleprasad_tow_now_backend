@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Review;
@@ -7,32 +9,52 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class ReviewService
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct(private readonly Review $review)
-    {
-    }
-    
+    public function __construct(private readonly Review $review) {}
+
     public function create(array $data): Review
     {
         return $this->review->create($data);
     }
 
-    public function getAll(){
-        return $this->review->with(['user', 'ride.driver'])->get();
-    }
-
-    public function paginate(array $filters): LengthAwarePaginator
+    /**
+     * @param  array{per_page?: int}  $filters
+     */
+    public function paginate(array $filters = []): LengthAwarePaginator
     {
-        return $this->review->paginate($filters['per_page'] ?? 15);
+        $perPage = (int) ($filters['per_page'] ?? 15);
+
+        return $this->review
+            ->newQuery()
+            ->with([
+                'user',
+                'ride.driver',
+                'reviewReplays' => fn ($query) => $query
+                    ->whereNull('parent_id')
+                    ->with(['user', 'replies.user']),
+            ])
+            ->latest('id')
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
-    public function driverReviews($driverId): LengthAwarePaginator
+    public function driverReviews(int $driverId, array $filters = []): LengthAwarePaginator
     {
-        return $this->review->whereHas('ride', function ($query) use ($driverId) {
-            $query->where('driver_id', $driverId);
-        })->paginate(15);
-    }
+        $perPage = (int) ($filters['per_page'] ?? 15);
 
+        return $this->review
+            ->newQuery()
+            ->with([
+                'user',
+                'ride.driver',
+                'reviewReplays' => fn ($query) => $query
+                    ->whereNull('parent_id')
+                    ->with(['user', 'replies.user']),
+            ])
+            ->whereHas('ride', function ($query) use ($driverId): void {
+                $query->where('driver_id', $driverId);
+            })
+            ->latest('id')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
 }

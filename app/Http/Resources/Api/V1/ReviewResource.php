@@ -39,6 +39,8 @@ class ReviewResource extends JsonResource
             'rating' => $this->rating,
             'body' => $this->body,
 
+            'replays' => ReviewReplayResource::collection($this->whenLoaded('reviewReplays')),
+
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

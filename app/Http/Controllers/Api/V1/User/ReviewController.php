@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\User;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\ReviewResource;
 use App\Models\Review;
-use Illuminate\Http\Request;
 use App\Services\ReviewService;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class ReviewController extends Controller
@@ -35,15 +35,22 @@ class ReviewController extends Controller
         $review = $this->reviewService->create([
             'user_id' => $userId,
             'ride_id' => $ride_id,
-            'rating'  => $validated['rating'],
-            'body'    => $validated['review'] ?? '',
+            'rating' => $validated['rating'],
+            'body' => $validated['review'] ?? '',
         ]);
 
         return sendResponse(status: true, message: __('api.review_created'), data: $review, statusCode: 201);
     }
 
-    public function reviews(){
-        $reviews = $this->reviewService->getAll();
+    public function reviews(Request $request)
+    {
+        $filters = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $reviews = $this->reviewService->paginate($filters);
+
         return sendResponse(true, 'Reviews fetched successfully.', ReviewResource::collection($reviews), HttpStatus::HTTP_OK);
     }
 }

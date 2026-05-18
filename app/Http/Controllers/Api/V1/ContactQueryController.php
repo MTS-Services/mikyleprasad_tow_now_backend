@@ -16,36 +16,38 @@ class ContactQueryController extends Controller
     {
         $this->contactQueryService = app(ContactQueryService::class);
     }
-    
+
     public function store(Request $request)
     {
-       $validated = $request->validate([
-           'name' => 'required|string|max:255',
-           'email' => 'required|email|max:255',
-           'subject' => 'required|string|max:255',
-           'message' => 'required|string',
-           'created_at' => now(),
-       ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string',
+            'created_at' => now(),
+        ]);
 
-       
-       $this->contactQueryService->create($validated);
-       
-       return sendResponse(
-           status: true,
-           message: 'Contact query created successfully',
-           data: null,
-           statusCode: 201
-       );
+        $this->contactQueryService->create($validated);
+
+        return sendResponse(
+            status: true,
+            message: 'Contact query created successfully',
+            data: null,
+            statusCode: 201
+        );
     }
-    
+
     public function index(Request $request)
     {
-        $filters = $request->only(['per_page']);
+        $filters = $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
         $contactQueries = $this->contactQueryService->paginate($filters);
-        
-        return sendResponse(true, 'Data retrieved successfully',  AdminLeadsResource::collection($contactQueries),HttpStatus::HTTP_OK );
+
+        return sendResponse(true, 'Data retrieved successfully', AdminLeadsResource::collection($contactQueries), HttpStatus::HTTP_OK);
     }
-    
+
     public function show($id)
     {
         $contactQuery = $this->contactQueryService->get($id);
