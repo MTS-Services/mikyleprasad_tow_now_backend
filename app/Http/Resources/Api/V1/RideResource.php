@@ -90,6 +90,7 @@ class RideResource extends JsonResource
                 'name' => $this->driver?->name,
                 'phone' => $this->driver?->phone,
                 'address' => $this->driver?->address,
+                'avatar_url' => storage_url($this->driver?->avatar),
             ]),
             'review' => $this->whenLoaded('review', fn() => $this->review),
         ];
