@@ -19,8 +19,9 @@ class ReviewService
         return $this->review->create($data);
     }
 
-    public function getAll(){
-        return $this->review->with(['user', 'ride.driver'])->get();
+    public function getAll():LengthAwarePaginator
+    {
+        return $this->review->with(['user', 'ride.driver'])->paginate($filters['per_page'] ?? 15);
     }
 
     public function paginate(array $filters): LengthAwarePaginator
