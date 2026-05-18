@@ -14,20 +14,27 @@ class ReviewResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-       return [
+        return [
             'id' => $this->id,
             'ride_id' => $this->ride_id,
-             'user' => [
-                'id' => $this->user?->id,
-                'name' => $this->user?->name,
-                'email' => $this->user?->email,
-            ],
 
-            'driver' => [
-                'id' => $this->ride?->driver?->id,
-                'name' => $this->ride?->driver?->name,
-                'email' => $this->ride?->driver?->email,
-            ],
+            'user' => $this->whenLoaded('user', function () {
+                return [
+                    'id' => $this->user?->id,
+                    'name' => $this->user?->name,
+                    'email' => $this->user?->email,
+                    'avatar_url' => storage_url($this->user->avatar),
+                ];
+            }),
+
+            'driver' => $this->whenLoaded('ride.driver', function () {
+                return [
+                    'id' => $this->ride?->driver?->id,
+                    'name' => $this->ride?->driver?->name,
+                    'email' => $this->ride?->driver?->email,
+                    'avatar_url' => storage_url($this->ride?->driver?->avatar),
+                ];
+            }),
 
             'rating' => $this->rating,
             'body' => $this->body,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Enums\AccountStatus;
+use App\Enums\RideStatusEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,16 +28,51 @@ class DriverCardResource extends JsonResource
         $vehicleName = $this->vehicle?->name
             ?: trim(sprintf('%s %s', (string) ($this->vehicle?->brand ?? ''), (string) ($this->vehicle?->model ?? '')));
 
+
+        $reviews = $this->relationLoaded('assignedRides')
+            ? $this->assignedRides->pluck('review')->filter()->values()
+            : collect();
+
         $base = [
             'id' => $this->id,
             'initials' => $this->resolveInitials(),
             'name' => $this->name,
-            'rating' => 0,
-            'reviews' => 0,
+            'rating'      => round((float) $reviews->avg('rating'), 1),
+            'reviews'     => $reviews->count(),
             'location' => $this->address ?: 'Location unavailable',
             'status' => $status,
             'phoneNumber' => $this->phone,
             'avatar_url' => null,
+
+
+            'totalRides'     => $this->relationLoaded('assignedRides')
+                ? $this->assignedRides->count()
+                : 0,
+
+            'completedRides' => $this->relationLoaded('assignedRides')
+                ? $this->assignedRides->where('status', RideStatusEnum::COMPLETED_USER)->count()
+                : 0,
+
+            'canceledRides'  => $this->relationLoaded('assignedRides')
+                ? $this->assignedRides->whereIn('status', [
+                    RideStatusEnum::CANCELLED_BY_USER,
+                    RideStatusEnum::CANCELLED_BY_DRIVER,
+                    RideStatusEnum::SYSTEM_CANCELLED,
+                    RideStatusEnum::EXPIRED,
+                ])->count()
+                : 0,
+            'rides' => $this->whenLoaded(
+                'assignedRides',
+                fn() =>
+                $this->assignedRides->values()
+            ),
+
+            'review_list' => $reviews->map(fn($review) => [
+                'id'     => $review->id,
+                'rating' => $review->rating,
+                'body'   => $review->body,
+                'date'   => $review->created_at?->toDateString(),
+            ])->values(),
         ];
 
         if ($lite) {
