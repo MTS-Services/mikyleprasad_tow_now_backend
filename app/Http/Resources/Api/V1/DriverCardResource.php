@@ -42,7 +42,7 @@ class DriverCardResource extends JsonResource
             'location' => $this->address ?: 'Location unavailable',
             'status' => $status,
             'phoneNumber' => $this->phone,
-            'avatar_url' => null,
+            'avatar_url' => $this->avatar ? storage_url($this->avatar) : null,
 
 
             'totalRides'     => $this->relationLoaded('assignedRides')
@@ -84,6 +84,9 @@ class DriverCardResource extends JsonResource
                 'maxCapacity' => 'N/A',
                 'insurance' => 'N/A',
                 'experience' => 'N/A',
+                'truck_image_url' => null,
+                'driving_license_image_url' => null,
+                'legal_documents_url' => null,
             ];
         }
 
@@ -95,6 +98,9 @@ class DriverCardResource extends JsonResource
             'maxCapacity' => $this->vehicle?->capacity ?: 'N/A',
             'insurance' => strtoupper((string) ($this->vehicle?->insurance_status ?: 'N/A')),
             'experience' => 'N/A',
+            'truck_image_url' => $this->vehicle?->truck_image ? storage_url($this->vehicle->truck_image) : null,
+            'driving_license_image_url' => $this->vehicle?->driving_license_image ? storage_url($this->vehicle->driving_license_image) : null,
+            'legal_documents_url' => $this->vehicle?->legal_documents ? storage_url($this->vehicle->legal_documents) : null,
         ];
     }
 
