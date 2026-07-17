@@ -14,14 +14,18 @@ class ProfileController extends Controller
         private UserServce $userServce
     ) {}
 
-
     public function update(Request $request)
     {
-        $data = $this->userServce->updateProfile($request, $request->all());
+        $data = $this->userServce->updateProfile(
+            $request,
+            $request->all(),
+            requireCurrentPassword: false
+        );
 
         if (! $data) {
             return sendResponse(false, 'User profile not found.', null, HttpStatus::HTTP_NOT_FOUND);
         }
+
         return sendResponse(true, 'Data updated successfully.', new AdminProfileResource($data['user']), HttpStatus::HTTP_OK);
     }
 }

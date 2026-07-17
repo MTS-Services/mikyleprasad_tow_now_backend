@@ -25,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Laravel\Fortify\Fortify;
@@ -70,7 +71,7 @@ class AuthController extends Controller
         RequestLoginOtpAction $requestLoginOtpAction,
         EnsureLoginIdentifierIsVerifiedAction $ensureLoginIdentifierIsVerifiedAction
     ): JsonResponse {
-
+Log::info('login', ['request' => $request->all()]);
         if ($this->authLogin->loginType() === LoginType::Otp) {
             $otpRequest = $this->requestForLoginOtp($request);
 

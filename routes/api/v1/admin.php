@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\V1\ContactQueryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-
 Route::get('/ping', function (Request $request) {
     return response()->json([
         'message' => 'ok',
@@ -29,13 +28,14 @@ Route::post('drivers/{driver}/suspend', [AdminPortalController::class, 'suspendD
 Route::post('drivers/{driver}/unsuspend', [AdminPortalController::class, 'unsuspendDriver']);
 Route::post('drivers/{driver}/featured', [AdminPortalController::class, 'featuredDriver']);
 Route::post('drivers/{driver}/unfeatured', [AdminPortalController::class, 'unfeaturedDriver']);
+Route::patch('drivers/{driver}', [AdminPortalController::class, 'updateDriver']);
 Route::get('drivers/{driver}/vehicle-documents/{document}', [AdminPortalController::class, 'downloadDriverVehicleDocument'])
     ->whereIn('document', ['truck_image', 'driving_license_image', 'legal_documents']);
 Route::get('drivers/{driver}', [AdminPortalController::class, 'showDriver']);
 Route::get('customers', [AdminPortalController::class, 'customers']);
+Route::patch('customers/{customer}', [AdminPortalController::class, 'updateCustomer']);
 Route::get('customers/{customer}', [AdminPortalController::class, 'showCustomer']);
 Route::get('reviews', [AdminPortalController::class, 'reviews']);
-
 
 Route::controller(ProfileController::class)->group(function () {
     Route::get('profile', 'index');
@@ -44,5 +44,3 @@ Route::controller(ProfileController::class)->group(function () {
 
 Route::get('/contact', [ContactQueryController::class, 'index']);
 Route::get('/contact/{id}', [ContactQueryController::class, 'show']);
-
-
