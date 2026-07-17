@@ -17,10 +17,12 @@ use App\Services\DriverService;
 use App\Services\ReviewService;
 use App\Support\Filters\RideQueryFilters;
 use App\Support\Filters\UserActorFilters;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -151,6 +153,78 @@ class AdminPortalController extends Controller
         return sendResponse(true, 'Driver fetched successfully.', new UserResource($driverDetails), HttpStatus::HTTP_OK);
     }
 
+    public function updateDriver(Request $request, User $driver): JsonResponse
+    {
+        if ($driver->role !== UserRole::DRIVER) {
+            return sendResponse(false, 'Driver not found.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'email' => [
+                'sometimes',
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($driver->id),
+            ],
+            'phone' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users', 'phone')->ignore($driver->id),
+            ],
+            'address' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'password' => ['sometimes', 'required', 'string', 'min:6'],
+        ]);
+
+        $driver->update($validated);
+
+        return sendResponse(
+            true,
+            'Driver updated successfully.',
+            new UserResource($driver->fresh()),
+            HttpStatus::HTTP_OK
+        );
+    }
+
+    public function updateCustomer(Request $request, User $customer): JsonResponse
+    {
+        if ($customer->role !== UserRole::USER) {
+            return sendResponse(false, 'Customer not found.', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'email' => [
+                'sometimes',
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($customer->id),
+            ],
+            'phone' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users', 'phone')->ignore($customer->id),
+            ],
+            'address' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'password' => ['sometimes', 'required', 'string', 'min:6'],
+        ]);
+
+        $customer->update($validated);
+
+        return sendResponse(
+            true,
+            'Customer updated successfully.',
+            new UserResource($customer->fresh()),
+            HttpStatus::HTTP_OK
+        );
+    }
+
     public function downloadDriverVehicleDocument(User $driver, string $document): JsonResponse|RedirectResponse|BinaryFileResponse|StreamedResponse
     {
         $allowed = ['truck_image', 'driving_license_image', 'legal_documents'];
@@ -181,13 +255,16 @@ class AdminPortalController extends Controller
             $trimmed = substr($trimmed, strlen('storage/'));
         }
 
-        if (! Storage::disk('public')->exists($trimmed)) {
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+
+        if (! $publicDisk->exists($trimmed)) {
             return sendResponse(false, 'File not found.', null, HttpStatus::HTTP_NOT_FOUND);
         }
 
         $filename = $document.'-'.($driverDetails->username ?? $driverDetails->id).'-'.basename($trimmed);
 
-        return Storage::disk('public')->download($trimmed, $filename);
+        return $publicDisk->download($trimmed, $filename);
     }
 
     public function customers(Request $request): JsonResponse
@@ -227,6 +304,7 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Driver suspended successfully.', null, HttpStatus::HTTP_OK);
     }
+
     public function unsuspendDriver(User $driver): JsonResponse
     {
         $this->driverService->unsuspendDriver($driver->id);
@@ -240,6 +318,7 @@ class AdminPortalController extends Controller
 
         return sendResponse(true, 'Driver featured successfully.', null, HttpStatus::HTTP_OK);
     }
+
     public function unfeaturedDriver(User $driver): JsonResponse
     {
         $this->driverService->unfeaturedDriver($driver->id);
